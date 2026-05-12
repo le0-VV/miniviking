@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "miniviking"
+version = "0.1.0"
+description = "Tiny local MLX runtime for OpenViking"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+  { name = "Coding agent supervised by Leonard Wang", email = "pyleow@icloud.com" },
+]
+dependencies = [
+  "huggingface_hub>=0.25",
+  "mlx>=0.21; platform_system == 'Darwin' and platform_machine == 'arm64'",
+  "mlx-lm>=0.21; platform_system == 'Darwin' and platform_machine == 'arm64'",
+  "mlx-vlm>=0.4.3; platform_system == 'Darwin' and platform_machine == 'arm64'",
+  "mlx-embeddings>=0.0.4; platform_system == 'Darwin' and platform_machine == 'arm64'",
+]
+
+[project.scripts]
+miniviking = "miniviking.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/miniviking"]
