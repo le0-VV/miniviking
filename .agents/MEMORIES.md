@@ -10,3 +10,11 @@
   - More than 16 GB unified memory: embedding `mlx-community/embeddinggemma-300m-bf16`, LLM `mlx-community/gemma-4-e4b-it-4bit`.
 - LLM inference should enforce JSON structured responses, use a reliability-focused system prompt, and use low or zero temperature for consistency.
 - Remaining runtime configuration for both LLM and embeddings should balance performance, accuracy, and low memory usage, with settings adjusted by system memory budget and discussed before implementation.
+- Confirmed decisions:
+  - Server should expose OpenAI-compatible endpoints by default.
+  - Install should use a per-user macOS LaunchAgent by default.
+  - CLI should include `install`, `uninstall`, `start`, `stop`, `restart`, `status`, and `serve`.
+  - Model downloads should happen during install and fail fast if unavailable.
+  - Default bind should be `127.0.0.1:8745`, and the port must be customizable.
+  - Priority order: OpenViking compatibility with next to no extra config, then safe memory usage, then performance.
+  - Context-window sizing should be chosen after verification; memory ingestion likely does not need the full 128k context even if the selected LLMs support it.
