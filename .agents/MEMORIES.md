@@ -18,3 +18,4 @@
   - Default bind should be `127.0.0.1:8745`, and the port must be customizable.
   - Priority order: OpenViking compatibility with next to no extra config, then safe memory usage, then performance.
   - Context-window sizing should be chosen after verification; memory ingestion likely does not need the full 128k context even if the selected LLMs support it.
+  - Do not leave testing-only code paths or artifacts in release binaries; diagnostics should remain explicit developer/operator commands and not affect production serving behavior.
