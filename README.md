@@ -28,6 +28,18 @@ Run directly:
 miniviking serve
 ```
 
+Verify a running server:
+
+```sh
+miniviking smoke
+```
+
+Print the OpenViking config snippet for the current miniviking config:
+
+```sh
+miniviking openviking-config
+```
+
 The installer detects host memory and writes a config under `~/.miniviking/config.json`. The port, runtime mode, and models can be customized in that file or with CLI flags during install.
 
 Memory-tier defaults:
