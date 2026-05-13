@@ -15,6 +15,33 @@ Core endpoints:
 - `POST /v1/embeddings`
 - `GET /health`
 
+## Install
+
+Homebrew install commands, once the release tarball is published and `Formula/miniviking.rb` has the final SHA:
+
+```sh
+brew tap le0-VV/miniviking
+brew install miniviking
+```
+
+Create the Homebrew service config and download the selected models:
+
+```sh
+miniviking install --config "$(brew --prefix)/etc/miniviking/config.json" --skip-launch-agent
+```
+
+Start the Homebrew service:
+
+```sh
+brew services start miniviking
+```
+
+Verify the running server:
+
+```sh
+miniviking test --config "$(brew --prefix)/etc/miniviking/config.json"
+```
+
 Install as a per-user LaunchAgent:
 
 ```sh
@@ -38,12 +65,6 @@ Verify a running server:
 
 ```sh
 miniviking test
-```
-
-Homebrew tap formula:
-
-```text
-Formula/miniviking.rb
 ```
 
 Print the OpenViking config snippet for the current miniviking config:
