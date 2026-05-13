@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import math
+import inspect
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -136,23 +138,19 @@ class MlxRuntime:
         except ImportError as exc:
             raise RuntimeError("mlx-vlm is required for Gemma 4 LLM serving") from exc
 
-        prompt = apply_chat_template(
-            self._llm_processor,
-            self._llm_vlm_config,
-            _messages_to_prompt_text(messages),
-            num_images=0,
-            num_audios=0,
-        )
-        content = generate(
+        prompt = apply_chat_template(self._llm_processor, self._llm_vlm_config, messages, num_images=0, num_audios=0)
+        result = generate(
             self._llm_model,
             self._llm_processor,
             prompt,
-            image=[],
-            audio=[],
+            image=None,
+            audio=None,
             max_tokens=max_tokens,
+            max_kv_size=self.config.generation.max_kv_size,
             temperature=self.config.generation.temperature,
             verbose=False,
         )
+        content = getattr(result, "text", result)
         if not isinstance(content, str):
             content = str(content)
         return content
@@ -171,17 +169,34 @@ class MlxRuntime:
             batch = inputs[start : start + self.config.embedding.batch_size]
             encoded = self._embedding_tokenizer(
                 batch,
+                return_tensors="mlx",
                 padding=True,
                 truncation=True,
                 max_length=self.config.embedding.max_input_tokens,
-                return_tensors="mlx",
             )
-            outputs = self._embedding_model(**encoded)
+            outputs = self._call_embedding_model(encoded)
             embeddings = getattr(outputs, "text_embeds", outputs)
             if self.config.embedding.normalize:
                 embeddings = embeddings / mx.linalg.norm(embeddings, axis=-1, keepdims=True)
             vectors.extend(embeddings.tolist())
         return vectors
+
+    def _call_embedding_model(self, encoded: Any) -> Any:
+        if isinstance(encoded, Mapping):
+            payload = dict(encoded)
+        elif hasattr(encoded, "data") and isinstance(encoded.data, Mapping):
+            payload = dict(encoded.data)
+        else:
+            return self._embedding_model(encoded)
+
+        signature = inspect.signature(self._embedding_model.__call__)
+        if "inputs" in signature.parameters and "input_ids" in payload:
+            kwargs = {"inputs": payload["input_ids"]}
+            if "attention_mask" in signature.parameters and "attention_mask" in payload:
+                kwargs["attention_mask"] = payload["attention_mask"]
+            return self._embedding_model(**kwargs)
+
+        return self._embedding_model(**payload)
 
 
 class DownloadError(RuntimeError):
@@ -202,7 +217,3 @@ def download_models(config: ServerConfig) -> None:
 
     for model_id in model_ids:
         snapshot_download(repo_id=model_id)
-
-
-def _messages_to_prompt_text(messages: list[dict[str, str]]) -> str:
-    return "\n\n".join(f"{message['role'].upper()}:\n{message['content']}" for message in messages)

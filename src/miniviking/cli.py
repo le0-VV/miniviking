@@ -24,7 +24,9 @@ def build_parser() -> argparse.ArgumentParser:
     install.add_argument("--mode", choices=["llm", "embedding", "both"], default="both")
     install.add_argument("--host", default=DEFAULT_HOST)
     install.add_argument("--port", type=int, default=DEFAULT_PORT)
-    install.add_argument("--memory-gib", type=int, help="override detected unified memory for testing or custom installs")
+    install.add_argument("--memory-gib", type=int, help="override detected unified memory for custom installs")
+    install.add_argument("--skip-launch-agent", action="store_true", help="do not write the macOS LaunchAgent plist")
+    install.add_argument("--print-openviking-config", action="store_true", help="print OpenViking config after install")
 
     uninstall = subparsers.add_parser("uninstall", help="unload LaunchAgent and remove its plist")
     uninstall.add_argument("--plist", type=Path, default=PLIST_PATH)
@@ -89,12 +91,18 @@ def _install(args: argparse.Namespace) -> None:
     config = config_from_defaults(defaults, mode=args.mode, host=args.host, port=args.port)
     download_models(config)
     write_config(config, args.config)
-    write_plist(args.config)
+    if not args.skip_launch_agent:
+        write_plist(args.config)
 
     print(f"Detected memory tier: {defaults.name} ({memory_gib} GB)")
     print(f"Wrote config: {args.config}")
-    print(f"Wrote LaunchAgent: {PLIST_PATH}")
+    if args.skip_launch_agent:
+        print("Skipped LaunchAgent install")
+    else:
+        print(f"Wrote LaunchAgent: {PLIST_PATH}")
     print(f"OpenAI-compatible base URL: {config.base_url}")
+    if args.print_openviking_config:
+        print(openviking_config_json(config))
     if defaults.warning:
         print(f"Warning: {defaults.warning}", file=sys.stderr)
 

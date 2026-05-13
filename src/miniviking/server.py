@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from http import HTTPStatus
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -19,7 +19,7 @@ from .openai import (
 from .runtime import Runtime, estimate_tokens
 
 
-class MinivikingServer(ThreadingHTTPServer):
+class MinivikingServer(HTTPServer):
     def __init__(self, server_address: tuple[str, int], config: ServerConfig, runtime: Runtime) -> None:
         super().__init__(server_address, MinivikingHandler)
         self.config = config
@@ -67,6 +67,8 @@ class MinivikingHandler(BaseHTTPRequestHandler):
         except ValueError as exc:
             self._write_json(error_payload(str(exc)), HTTPStatus.BAD_REQUEST)
         except RuntimeError as exc:
+            self._write_json(error_payload(str(exc), "server_error"), HTTPStatus.INTERNAL_SERVER_ERROR)
+        except Exception as exc:
             self._write_json(error_payload(str(exc), "server_error"), HTTPStatus.INTERNAL_SERVER_ERROR)
 
     def _handle_chat_completions(self, payload: dict[str, Any]) -> None:

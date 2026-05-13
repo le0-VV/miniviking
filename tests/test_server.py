@@ -1,4 +1,5 @@
 import json
+import socketserver
 import threading
 import unittest
 from typing import Any
@@ -39,6 +40,9 @@ class ServerTests(unittest.TestCase):
 
         self.assertEqual(payload["object"], "list")
         self.assertEqual(len(payload["data"]), 2)
+
+    def test_server_is_single_threaded_for_mlx_stream_safety(self) -> None:
+        self.assertNotIsInstance(self.server, socketserver.ThreadingMixIn)
 
     def test_embeddings_endpoint(self) -> None:
         payload = self._post("/v1/embeddings", {"model": "ignored", "input": ["a", "b"]})
