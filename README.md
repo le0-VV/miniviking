@@ -20,8 +20,8 @@ Core endpoints:
 Pre-release Homebrew install from the current `main` branch:
 
 ```sh
-brew tap le0-VV/miniviking
-brew install --HEAD miniviking
+brew tap le0-VV/miniviking https://github.com/le0-VV/miniviking
+brew install --HEAD le0-VV/miniviking/miniviking
 ```
 
 After a release tarball is published, install the binary formula by omitting `--HEAD`.

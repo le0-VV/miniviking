@@ -2,14 +2,14 @@
 
 `Formula/miniviking.rb` supports two install paths:
 
-- `brew install --HEAD miniviking` builds the current `main` branch into a Homebrew-managed Python virtualenv.
-- `brew install miniviking` installs the Apple Silicon single-binary release tarball after release assets are published.
+- `brew install --HEAD le0-VV/miniviking/miniviking` builds the current `main` branch into a Homebrew-managed Python virtualenv.
+- `brew install le0-VV/miniviking/miniviking` installs the Apple Silicon single-binary release tarball after release assets are published.
 
 User install command before the first binary release:
 
 ```sh
-brew tap le0-VV/miniviking
-brew install --HEAD miniviking
+brew tap le0-VV/miniviking https://github.com/le0-VV/miniviking
+brew install --HEAD le0-VV/miniviking/miniviking
 ```
 
 Before publishing the tap:
@@ -47,6 +47,6 @@ Before publishing the tap:
 User install command once the binary release is published:
 
 ```sh
-brew tap le0-VV/miniviking
-brew install miniviking
+brew tap le0-VV/miniviking https://github.com/le0-VV/miniviking
+brew install le0-VV/miniviking/miniviking
 ```
