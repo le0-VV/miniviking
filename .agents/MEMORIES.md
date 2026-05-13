@@ -22,6 +22,7 @@
   - Packaging should produce a single `miniviking` binary that runs three explicit processes: `miniviking-server` for OpenAI-compatible HTTP/API orchestration and non-model duties, `miniviking-llm` for LLM inference, and `miniviking-embed` for embedding inference.
   - Distribution should include a Homebrew formula/tap path so users can install Miniviking with Homebrew once release assets are published.
   - Before binary release assets are available, the Homebrew path should install from the current `main` branch with `brew install --HEAD miniviking`.
+  - Homebrew HEAD installs must create their Python virtualenv with `--without-pip` and then install with `uv pip install --python ...`, so the build does not depend on Homebrew Python `ensurepip`.
   - Because this repository is named `miniviking` rather than `homebrew-miniviking`, Homebrew tap instructions must use the explicit repository URL: `brew tap le0-VV/miniviking https://github.com/le0-VV/miniviking`. The shorthand `brew tap le0-VV/miniviking` makes Homebrew look for `le0-VV/homebrew-miniviking`.
   - The server verification CLI should be named `miniviking test`, not `miniviking smoke`.
   - Compatibility should be verified against a bone-stock, isolated OpenViking installation using real memory ingestion and retrieval workflows, with only OpenViking configuration pointed at Miniviking.
