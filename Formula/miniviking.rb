@@ -3,30 +3,22 @@
 class Miniviking < Formula
   desc "Tiny local MLX runtime for OpenViking"
   homepage "https://github.com/le0-VV/miniviking"
-  url "https://github.com/le0-VV/miniviking/releases/download/v0.1.0/miniviking-0.1.0-aarch64-apple-darwin.tar.gz"
-  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+  url "https://github.com/le0-VV/miniviking.git", branch: "main"
+  version "0.1.0"
   license "MIT"
 
-  head do
-    url "https://github.com/le0-VV/miniviking.git", branch: "main"
-    depends_on "python@3.13"
-    depends_on "uv" => :build
-  end
-
+  depends_on "rust" => :build
+  depends_on "python@3.13"
   depends_on arch: :arm64
   depends_on :macos
 
   def install
-    if build.head?
-      ENV["UV_LINK_MODE"] = "copy"
-      ENV["UV_PYTHON_DOWNLOADS"] = "never"
+    python_source = libexec/"python"
+    ENV["MINIVIKING_DEFAULT_PYTHON"] = (Formula["python@3.13"].opt_bin/"python3.13").to_s
+    ENV["MINIVIKING_DEFAULT_SOURCE"] = python_source.to_s
 
-      system Formula["python@3.13"].opt_bin/"python3.13", "-m", "venv", "--without-pip", libexec
-      system "uv", "pip", "install", "--python", libexec/"bin/python", "--compile-bytecode", "."
-      bin.install_symlink libexec/"bin/miniviking"
-    else
-      bin.install "miniviking"
-    end
+    system "cargo", "install", "--locked", "--root", prefix, "--path", "."
+    python_source.install "pyproject.toml", "README.md", "src"
   end
 
   service do
@@ -48,6 +40,9 @@ class Miniviking < Formula
       OpenViking should use:
         api_base = "http://127.0.0.1:8745/v1"
         api_key = "local"
+
+      Homebrew builds the Rust launcher from source. The launcher prepares
+      the Python/MLX runtime under ~/.miniviking/runtime when needed.
 
       Miniviking requires Apple Silicon because MLX is Apple Silicon only.
     EOS

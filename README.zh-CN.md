@@ -21,8 +21,13 @@ http://127.0.0.1:8745/v1
 
 ```sh
 brew tap le0-VV/miniviking https://github.com/le0-VV/miniviking
-brew install --HEAD le0-VV/miniviking/miniviking
+brew install le0-VV/miniviking/miniviking
 ```
+
+Homebrew formula 会从源码构建 Rust launcher。它不会安装预构建二进制，
+也不会在 Homebrew 构建阶段创建 Python virtualenv；当第一次运行
+`miniviking install` 或 server 时，launcher 会在 `~/.miniviking/runtime`
+下准备 Python/MLX 运行环境。
 
 创建 Homebrew service 使用的配置，并下载选中的模型：
 

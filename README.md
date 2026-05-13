@@ -21,8 +21,13 @@ Endpoints:
 
 ```sh
 brew tap le0-VV/miniviking https://github.com/le0-VV/miniviking
-brew install --HEAD le0-VV/miniviking/miniviking
+brew install le0-VV/miniviking/miniviking
 ```
+
+The Homebrew formula builds the Rust launcher from source. It does not install
+a prebuilt binary and does not create a Python virtualenv during the Homebrew
+build; the launcher prepares the Python/MLX runtime under `~/.miniviking/runtime`
+when `miniviking install` or the server is first run.
 
 Create the Homebrew service config and download the selected models:
 

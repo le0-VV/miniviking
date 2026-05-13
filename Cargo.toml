@@ -1,0 +1,10 @@
+[package]
+name = "miniviking"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Tiny local MLX runtime for OpenViking"
+
+[[bin]]
+name = "miniviking"
+path = "src/main.rs"

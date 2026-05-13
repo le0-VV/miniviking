@@ -1,56 +1,43 @@
 # Homebrew Formula
 
-`Formula/miniviking.rb` supports two install paths:
+`Formula/miniviking.rb` installs from source:
 
-- `brew install --HEAD le0-VV/miniviking/miniviking` builds the current `main` branch into a Homebrew-managed Python virtualenv.
-- `brew install le0-VV/miniviking/miniviking` installs the Apple Silicon single-binary release tarball after release assets are published.
+- `brew install le0-VV/miniviking/miniviking` builds the Rust launcher from source and installs the Python package source under `libexec`.
+- The formula does not install prebuilt binaries and does not create a Python virtualenv during the Homebrew build.
 
-User install command before the first binary release:
-
-```sh
-brew tap le0-VV/miniviking https://github.com/le0-VV/miniviking
-brew install --HEAD le0-VV/miniviking/miniviking
-```
-
-The HEAD install path intentionally creates its virtualenv with `--without-pip`
-and lets `uv` install Miniviking into it. This avoids depending on Homebrew
-Python's `ensurepip` bootstrap during formula builds.
-
-Before publishing the tap:
-
-1. Build a single-binary release asset named:
-
-   ```text
-   miniviking-0.1.0-aarch64-apple-darwin.tar.gz
-   ```
-
-2. The tarball must contain the executable at its top level:
-
-   ```text
-   miniviking
-   ```
-
-3. Upload the tarball to the GitHub release for `v0.1.0`.
-
-4. Replace the placeholder SHA in `Formula/miniviking.rb`:
-
-   ```text
-   0000000000000000000000000000000000000000000000000000000000000000
-   ```
-
-5. Verify locally:
-
-   ```sh
-   ruby -c Formula/miniviking.rb
-   brew audit --strict --online le0-VV/miniviking/miniviking
-   brew install --HEAD le0-VV/miniviking/miniviking
-   brew install le0-VV/miniviking/miniviking
-   miniviking --help
-   ```
-
-User install command once the binary release is published:
+User install command:
 
 ```sh
 brew tap le0-VV/miniviking https://github.com/le0-VV/miniviking
 brew install le0-VV/miniviking/miniviking
 ```
+
+The installed `miniviking` binary is a Rust launcher. It prepares the Python/MLX
+runtime under `~/.miniviking/runtime` when `miniviking install` or the server is
+first run, so dependency and model downloads happen outside the Homebrew formula
+build.
+
+Before moving the formula to a tagged source release:
+
+1. Create and push the source tag:
+
+   ```text
+   v0.1.0
+   ```
+
+2. Replace the temporary `branch: "main"` source URL with a tagged source archive:
+
+   ```text
+   https://github.com/le0-VV/miniviking/archive/refs/tags/v0.1.0.tar.gz
+   ```
+
+3. Add the source archive SHA to `Formula/miniviking.rb`.
+
+4. Verify locally:
+
+   ```sh
+   ruby -c Formula/miniviking.rb
+   brew audit --strict --online le0-VV/miniviking/miniviking
+   brew install le0-VV/miniviking/miniviking
+   miniviking --help
+   ```
