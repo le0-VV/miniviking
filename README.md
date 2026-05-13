@@ -37,7 +37,7 @@ miniviking serve
 Verify a running server:
 
 ```sh
-miniviking smoke
+miniviking test
 ```
 
 Homebrew tap formula:

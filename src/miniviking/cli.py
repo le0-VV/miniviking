@@ -11,7 +11,7 @@ from .launchd import PLIST_PATH, restart as launchd_restart, start as launchd_st
 from .openviking import openviking_config_json
 from .processes import serve_embedding_worker, serve_llm_worker, serve_processes
 from .runtime import DownloadError, download_models
-from .smoke import SmokeError, run_smoke
+from .selftest import ServerTestError, run_server_tests
 from .tiers import defaults_for_memory
 
 
@@ -56,12 +56,12 @@ def build_parser() -> argparse.ArgumentParser:
     ov_config = subparsers.add_parser("openviking-config", help="print OpenViking config snippet")
     ov_config.add_argument("--config", type=Path, default=CONFIG_PATH)
 
-    smoke = subparsers.add_parser("smoke", help="verify a running miniviking server")
-    smoke.add_argument("--config", type=Path, default=CONFIG_PATH)
-    smoke.add_argument("--base-url", help="override OpenAI-compatible base URL")
-    smoke.add_argument("--timeout", type=float, default=30.0)
-    smoke.add_argument("--skip-chat", action="store_true")
-    smoke.add_argument("--skip-embeddings", action="store_true")
+    test = subparsers.add_parser("test", help="verify a running miniviking server")
+    test.add_argument("--config", type=Path, default=CONFIG_PATH)
+    test.add_argument("--base-url", help="override OpenAI-compatible base URL")
+    test.add_argument("--timeout", type=float, default=30.0)
+    test.add_argument("--skip-chat", action="store_true")
+    test.add_argument("--skip-embeddings", action="store_true")
 
     return parser
 
@@ -96,10 +96,10 @@ def main(argv: list[str] | None = None) -> None:
         elif args.command == "openviking-config":
             config = load_config(args.config)
             print(openviking_config_json(config))
-        elif args.command == "smoke":
+        elif args.command == "test":
             config = load_config(args.config)
-            _smoke(args, config)
-    except (DownloadError, HostDetectionError, OSError, RuntimeError, SmokeError, ValueError) as exc:
+            _test(args, config)
+    except (DownloadError, HostDetectionError, OSError, RuntimeError, ServerTestError, ValueError) as exc:
         print(f"miniviking: {exc}", file=sys.stderr)
         raise SystemExit(1) from exc
 
@@ -145,8 +145,8 @@ def _print_launchctl(result: object) -> None:
         raise SystemExit(returncode)
 
 
-def _smoke(args: argparse.Namespace, config: ServerConfig) -> None:
-    checks = run_smoke(
+def _test(args: argparse.Namespace, config: ServerConfig) -> None:
+    checks = run_server_tests(
         config,
         base_url=args.base_url,
         timeout=args.timeout,

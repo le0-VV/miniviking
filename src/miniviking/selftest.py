@@ -10,25 +10,25 @@ from .config import ServerConfig
 
 
 @dataclass(frozen=True)
-class SmokeCheck:
+class ServerTestCheck:
     name: str
     ok: bool
     detail: str
 
 
-class SmokeError(RuntimeError):
+class ServerTestError(RuntimeError):
     pass
 
 
-def run_smoke(
+def run_server_tests(
     config: ServerConfig,
     *,
     base_url: str | None = None,
     timeout: float = 30.0,
     check_chat: bool = True,
     check_embeddings: bool = True,
-) -> list[SmokeCheck]:
-    client = SmokeClient((base_url or config.base_url).rstrip("/"), timeout)
+) -> list[ServerTestCheck]:
+    client = ServerTestClient((base_url or config.base_url).rstrip("/"), timeout)
     checks = [
         _check_health(client),
         _check_models(client, config),
@@ -40,7 +40,7 @@ def run_smoke(
     return checks
 
 
-class SmokeClient:
+class ServerTestClient:
     def __init__(self, base_url: str, timeout: float) -> None:
         self.base_url = base_url
         self.root_url = base_url.removesuffix("/v1")
@@ -65,17 +65,17 @@ class SmokeClient:
             return _read_json(response.read())
 
 
-def _check_health(client: SmokeClient) -> SmokeCheck:
+def _check_health(client: ServerTestClient) -> ServerTestCheck:
     try:
         payload = client.get_root("/health")
         if payload.get("status") != "ok":
-            return SmokeCheck("health", False, f"unexpected status payload: {payload!r}")
-        return SmokeCheck("health", True, "server is ready")
-    except (HTTPError, URLError, TimeoutError, SmokeError) as exc:
-        return SmokeCheck("health", False, str(exc))
+            return ServerTestCheck("health", False, f"unexpected status payload: {payload!r}")
+        return ServerTestCheck("health", True, "server is ready")
+    except (HTTPError, URLError, TimeoutError, ServerTestError) as exc:
+        return ServerTestCheck("health", False, str(exc))
 
 
-def _check_models(client: SmokeClient, config: ServerConfig) -> SmokeCheck:
+def _check_models(client: ServerTestClient, config: ServerConfig) -> ServerTestCheck:
     try:
         payload = client.get("/models")
         model_ids = {item.get("id") for item in payload.get("data", []) if isinstance(item, dict)}
@@ -86,13 +86,13 @@ def _check_models(client: SmokeClient, config: ServerConfig) -> SmokeCheck:
             expected.add(config.models.embedding_model)
         missing = expected - model_ids
         if missing:
-            return SmokeCheck("models", False, f"missing models: {', '.join(sorted(missing))}")
-        return SmokeCheck("models", True, f"found {len(model_ids)} model(s)")
-    except (HTTPError, URLError, TimeoutError, SmokeError) as exc:
-        return SmokeCheck("models", False, str(exc))
+            return ServerTestCheck("models", False, f"missing models: {', '.join(sorted(missing))}")
+        return ServerTestCheck("models", True, f"found {len(model_ids)} model(s)")
+    except (HTTPError, URLError, TimeoutError, ServerTestError) as exc:
+        return ServerTestCheck("models", False, str(exc))
 
 
-def _check_chat(client: SmokeClient, config: ServerConfig) -> SmokeCheck:
+def _check_chat(client: ServerTestClient, config: ServerConfig) -> ServerTestCheck:
     try:
         payload = client.post(
             "/chat/completions",
@@ -104,48 +104,48 @@ def _check_chat(client: SmokeClient, config: ServerConfig) -> SmokeCheck:
                 "messages": [
                     {
                         "role": "user",
-                        "content": 'Return exactly this JSON object: {"miniviking_smoke": true}',
+                        "content": 'Return exactly this JSON object: {"miniviking_test": true}',
                     }
                 ],
             },
         )
         content = payload["choices"][0]["message"]["content"]
         parsed = json.loads(content)
-        if parsed.get("miniviking_smoke") is not True:
-            return SmokeCheck("chat", False, f"unexpected JSON content: {content}")
-        return SmokeCheck("chat", True, "JSON chat completion succeeded")
-    except (KeyError, TypeError, json.JSONDecodeError, HTTPError, URLError, TimeoutError, SmokeError) as exc:
-        return SmokeCheck("chat", False, str(exc))
+        if parsed.get("miniviking_test") is not True:
+            return ServerTestCheck("chat", False, f"unexpected JSON content: {content}")
+        return ServerTestCheck("chat", True, "JSON chat completion succeeded")
+    except (KeyError, TypeError, json.JSONDecodeError, HTTPError, URLError, TimeoutError, ServerTestError) as exc:
+        return ServerTestCheck("chat", False, str(exc))
 
 
-def _check_embeddings(client: SmokeClient, config: ServerConfig) -> SmokeCheck:
+def _check_embeddings(client: ServerTestClient, config: ServerConfig) -> ServerTestCheck:
     try:
         payload = client.post(
             "/embeddings",
             {
                 "model": config.models.embedding_model,
-                "input": ["miniviking smoke test"],
+                "input": ["miniviking test"],
             },
         )
         embedding = payload["data"][0]["embedding"]
         if not isinstance(embedding, list) or not embedding:
-            return SmokeCheck("embeddings", False, "embedding was empty or not a list")
+            return ServerTestCheck("embeddings", False, "embedding was empty or not a list")
         if len(embedding) != config.models.embedding_dimensions:
-            return SmokeCheck(
+            return ServerTestCheck(
                 "embeddings",
                 False,
                 f"expected {config.models.embedding_dimensions} dimensions, got {len(embedding)}",
             )
-        return SmokeCheck("embeddings", True, f"{len(embedding)}-dimension embedding succeeded")
-    except (KeyError, TypeError, HTTPError, URLError, TimeoutError, SmokeError) as exc:
-        return SmokeCheck("embeddings", False, str(exc))
+        return ServerTestCheck("embeddings", True, f"{len(embedding)}-dimension embedding succeeded")
+    except (KeyError, TypeError, HTTPError, URLError, TimeoutError, ServerTestError) as exc:
+        return ServerTestCheck("embeddings", False, str(exc))
 
 
 def _read_json(body: bytes) -> dict[str, Any]:
     try:
         payload = json.loads(body)
     except json.JSONDecodeError as exc:
-        raise SmokeError(f"invalid JSON response: {exc.msg}") from exc
+        raise ServerTestError(f"invalid JSON response: {exc.msg}") from exc
     if not isinstance(payload, dict):
-        raise SmokeError("response was not a JSON object")
+        raise ServerTestError("response was not a JSON object")
     return payload

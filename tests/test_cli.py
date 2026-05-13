@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from miniviking.cli import main
 from miniviking.config import load_config
+from miniviking.selftest import ServerTestCheck
 
 
 class CliTests(unittest.TestCase):
@@ -77,6 +78,27 @@ class CliTests(unittest.TestCase):
 
             serve_llm_worker.assert_called_once()
             serve_embedding_worker.assert_called_once()
+
+    def test_test_command_runs_server_tests(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            with (
+                patch("miniviking.cli.download_models"),
+                patch("miniviking.cli.write_plist"),
+                redirect_stdout(io.StringIO()),
+                redirect_stderr(io.StringIO()),
+            ):
+                main(["install", "--memory-gib", "8", "--mode", "both", "--config", str(config_path), "--skip-launch-agent"])
+
+            stdout = io.StringIO()
+            with (
+                patch("miniviking.cli.run_server_tests", return_value=[ServerTestCheck("health", True, "server is ready")]) as run_server_tests,
+                redirect_stdout(stdout),
+            ):
+                main(["test", "--config", str(config_path), "--skip-chat"])
+
+            run_server_tests.assert_called_once()
+            self.assertIn("ok: health: server is ready", stdout.getvalue())
 
 
 if __name__ == "__main__":
