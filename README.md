@@ -17,12 +17,14 @@ Core endpoints:
 
 ## Install
 
-Homebrew install commands, once the release tarball is published and `Formula/miniviking.rb` has the final SHA:
+Pre-release Homebrew install from the current `main` branch:
 
 ```sh
 brew tap le0-VV/miniviking
-brew install miniviking
+brew install --HEAD miniviking
 ```
+
+After a release tarball is published, install the binary formula by omitting `--HEAD`.
 
 Create the Homebrew service config and download the selected models:
 

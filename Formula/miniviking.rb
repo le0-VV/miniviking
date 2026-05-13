@@ -2,16 +2,31 @@
 
 class Miniviking < Formula
   desc "Tiny local MLX runtime for OpenViking"
-  homepage "https://github.com/REPLACE_WITH_OWNER/miniviking"
-  url "https://github.com/REPLACE_WITH_OWNER/miniviking/releases/download/v0.1.0/miniviking-0.1.0-aarch64-apple-darwin.tar.gz"
+  homepage "https://github.com/le0-VV/miniviking"
+  url "https://github.com/le0-VV/miniviking/releases/download/v0.1.0/miniviking-0.1.0-aarch64-apple-darwin.tar.gz"
   sha256 "0000000000000000000000000000000000000000000000000000000000000000"
   license "MIT"
+
+  head do
+    url "https://github.com/le0-VV/miniviking.git", branch: "main"
+    depends_on "python@3.13"
+    depends_on "uv" => :build
+  end
 
   depends_on arch: :arm64
   depends_on :macos
 
   def install
-    bin.install "miniviking"
+    if build.head?
+      ENV["UV_LINK_MODE"] = "copy"
+      ENV["UV_PYTHON_DOWNLOADS"] = "never"
+
+      system Formula["python@3.13"].opt_bin/"python3.13", "-m", "venv", libexec
+      system "uv", "pip", "install", "--python", libexec/"bin/python", "--compile-bytecode", "."
+      bin.install_symlink libexec/"bin/miniviking"
+    else
+      bin.install "miniviking"
+    end
   end
 
   service do
