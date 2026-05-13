@@ -12,6 +12,10 @@ brew tap le0-VV/miniviking https://github.com/le0-VV/miniviking
 brew install --HEAD le0-VV/miniviking/miniviking
 ```
 
+The HEAD install path intentionally creates its virtualenv with `--without-pip`
+and lets `uv` install Miniviking into it. This avoids depending on Homebrew
+Python's `ensurepip` bootstrap during formula builds.
+
 Before publishing the tap:
 
 1. Build a single-binary release asset named:

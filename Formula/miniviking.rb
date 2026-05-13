@@ -21,7 +21,7 @@ class Miniviking < Formula
       ENV["UV_LINK_MODE"] = "copy"
       ENV["UV_PYTHON_DOWNLOADS"] = "never"
 
-      system Formula["python@3.13"].opt_bin/"python3.13", "-m", "venv", libexec
+      system Formula["python@3.13"].opt_bin/"python3.13", "-m", "venv", "--without-pip", libexec
       system "uv", "pip", "install", "--python", libexec/"bin/python", "--compile-bytecode", "."
       bin.install_symlink libexec/"bin/miniviking"
     else
