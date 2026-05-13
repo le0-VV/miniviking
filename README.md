@@ -28,6 +28,12 @@ Run directly:
 miniviking serve
 ```
 
+`miniviking` is packaged as one binary. The public server process starts worker copies of the same binary:
+
+- `miniviking-server` owns the OpenAI-compatible HTTP API, LaunchAgent lifecycle, config, and worker supervision.
+- `miniviking-llm` loads and serves only the configured LLM.
+- `miniviking-embed` loads and serves only the configured embedding model.
+
 Verify a running server:
 
 ```sh

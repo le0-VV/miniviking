@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import os
-import shutil
 import subprocess
-import sys
 from html import escape
 from pathlib import Path
 from typing import Any
 
 from .config import CONFIG_PATH
+from .processes import server_program_arguments
 
 LABEL = "ai.openviking.miniviking"
 PLIST_PATH = Path.home() / "Library" / "LaunchAgents" / f"{LABEL}.plist"
@@ -20,10 +19,7 @@ def launchd_domain() -> str:
 
 
 def program_arguments(config_path: Path = CONFIG_PATH) -> list[str]:
-    executable = shutil.which("miniviking")
-    if executable:
-        return [executable, "serve", "--config", str(config_path)]
-    return [sys.executable, "-m", "miniviking", "serve", "--config", str(config_path)]
+    return server_program_arguments(config_path)
 
 
 def plist_payload(config_path: Path = CONFIG_PATH) -> dict[str, object]:

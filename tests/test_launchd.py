@@ -15,7 +15,7 @@ class LaunchdTests(unittest.TestCase):
         self.assertIs(payload["RunAtLoad"], True)
         self.assertIs(payload["KeepAlive"], True)
         self.assertEqual(payload["EnvironmentVariables"], {"MINIVIKING_CONFIG": str(config_path)})
-        self.assertIn("serve", payload["ProgramArguments"])
+        self.assertIn("miniviking-server", payload["ProgramArguments"])
         self.assertIn(str(config_path), payload["ProgramArguments"])
 
 

@@ -9,8 +9,8 @@ from .config import CONFIG_PATH, DEFAULT_HOST, DEFAULT_PORT, ServerConfig, confi
 from .host import HostDetectionError, detect_unified_memory_gib
 from .launchd import PLIST_PATH, restart as launchd_restart, start as launchd_start, status as launchd_status, stop as launchd_stop, write_plist
 from .openviking import openviking_config_json
-from .runtime import DownloadError, MlxRuntime, download_models
-from .server import serve
+from .processes import serve_embedding_worker, serve_llm_worker, serve_processes
+from .runtime import DownloadError, download_models
 from .smoke import SmokeError, run_smoke
 from .tiers import defaults_for_memory
 
@@ -31,8 +31,21 @@ def build_parser() -> argparse.ArgumentParser:
     uninstall = subparsers.add_parser("uninstall", help="unload LaunchAgent and remove its plist")
     uninstall.add_argument("--plist", type=Path, default=PLIST_PATH)
 
-    serve_parser = subparsers.add_parser("serve", help="serve the OpenAI-compatible API")
+    server_parser = subparsers.add_parser("miniviking-server", help="run the server process and model workers")
+    server_parser.add_argument("--config", type=Path, default=CONFIG_PATH)
+
+    serve_parser = subparsers.add_parser("serve", help="alias for miniviking-server")
     serve_parser.add_argument("--config", type=Path, default=CONFIG_PATH)
+
+    llm_worker = subparsers.add_parser("miniviking-llm", help="run the internal LLM worker process")
+    llm_worker.add_argument("--config", type=Path, default=CONFIG_PATH)
+    llm_worker.add_argument("--host")
+    llm_worker.add_argument("--port", type=int)
+
+    embedding_worker = subparsers.add_parser("miniviking-embed", help="run the internal embedding worker process")
+    embedding_worker.add_argument("--config", type=Path, default=CONFIG_PATH)
+    embedding_worker.add_argument("--host")
+    embedding_worker.add_argument("--port", type=int)
 
     for name in ("start", "stop", "restart", "status"):
         subparsers.add_parser(name)
@@ -60,9 +73,15 @@ def main(argv: list[str] | None = None) -> None:
             _install(args)
         elif args.command == "uninstall":
             _uninstall(args.plist)
-        elif args.command == "serve":
+        elif args.command in {"serve", "miniviking-server"}:
             config = load_config(args.config)
-            serve(config, MlxRuntime(config))
+            serve_processes(config, config_path=args.config)
+        elif args.command == "miniviking-llm":
+            config = load_config(args.config)
+            serve_llm_worker(config, host=args.host, port=args.port)
+        elif args.command == "miniviking-embed":
+            config = load_config(args.config)
+            serve_embedding_worker(config, host=args.host, port=args.port)
         elif args.command == "start":
             _print_launchctl(launchd_start())
         elif args.command == "stop":
