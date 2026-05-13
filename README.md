@@ -2,7 +2,7 @@
 
 [简体中文](README.zh-CN.md)
 
-`miniviking` is a tiny local MLX runtime for OpenViking. It exposes OpenAI-compatible endpoints on localhost so a stock OpenViking installation can use local chat-completion and embedding models with minimal configuration.
+`miniviking` is a tiny local MLX server for working with OpenViking. It exposes OpenAI-compatible endpoints on localhost so a stock OpenViking installation can use local chat-completion and embedding models with minimal configuration.
 
 Default server:
 
@@ -10,7 +10,7 @@ Default server:
 http://127.0.0.1:8745/v1
 ```
 
-Core endpoints:
+Endpoints:
 
 - `GET /v1/models`
 - `POST /v1/chat/completions`
@@ -19,14 +19,10 @@ Core endpoints:
 
 ## Install
 
-Pre-release Homebrew install from the current `main` branch:
-
 ```sh
 brew tap le0-VV/miniviking https://github.com/le0-VV/miniviking
 brew install --HEAD le0-VV/miniviking/miniviking
 ```
-
-After a release tarball is published, install the binary formula by omitting `--HEAD`.
 
 Create the Homebrew service config and download the selected models:
 
@@ -58,12 +54,6 @@ Run directly:
 ```sh
 miniviking serve
 ```
-
-`miniviking` is packaged as one binary. The public server process starts worker copies of the same binary:
-
-- `miniviking-server` owns the OpenAI-compatible HTTP API, LaunchAgent lifecycle, config, and worker supervision.
-- `miniviking-llm` loads and serves only the configured LLM.
-- `miniviking-embed` loads and serves only the configured embedding model.
 
 Verify a running server:
 
