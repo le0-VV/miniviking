@@ -40,6 +40,12 @@ Verify a running server:
 miniviking smoke
 ```
 
+Homebrew tap formula:
+
+```text
+Formula/miniviking.rb
+```
+
 Print the OpenViking config snippet for the current miniviking config:
 
 ```sh
