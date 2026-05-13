@@ -20,3 +20,4 @@
   - Context-window sizing should be chosen after verification; memory ingestion likely does not need the full 128k context even if the selected LLMs support it.
   - Do not leave testing-only code paths or artifacts in release binaries; diagnostics should remain explicit developer/operator commands and not affect production serving behavior.
   - Packaging should produce a single `miniviking` binary that runs three explicit processes: `miniviking-server` for OpenAI-compatible HTTP/API orchestration and non-model duties, `miniviking-llm` for LLM inference, and `miniviking-embed` for embedding inference.
+  - Distribution should include a Homebrew formula/tap path so users can install Miniviking with Homebrew once release assets are published.
