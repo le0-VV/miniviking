@@ -22,3 +22,4 @@
   - Packaging should produce a single `miniviking` binary that runs three explicit processes: `miniviking-server` for OpenAI-compatible HTTP/API orchestration and non-model duties, `miniviking-llm` for LLM inference, and `miniviking-embed` for embedding inference.
   - Distribution should include a Homebrew formula/tap path so users can install Miniviking with Homebrew once release assets are published.
   - The server verification CLI should be named `miniviking test`, not `miniviking smoke`.
+  - Compatibility should be verified against a bone-stock, isolated OpenViking installation using real memory ingestion and retrieval workflows, with only OpenViking configuration pointed at Miniviking.
