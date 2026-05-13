@@ -21,6 +21,7 @@
   - Do not leave testing-only code paths or artifacts in release binaries; diagnostics should remain explicit developer/operator commands and not affect production serving behavior.
   - Packaging should produce a single `miniviking` binary that runs three explicit processes: `miniviking-server` for OpenAI-compatible HTTP/API orchestration and non-model duties, `miniviking-llm` for LLM inference, and `miniviking-embed` for embedding inference.
   - Distribution should include a Homebrew formula/tap path so users can install Miniviking with Homebrew once release assets are published.
+  - Before binary release assets are available, the Homebrew path should install from the current `main` branch with `brew install --HEAD miniviking`.
   - The server verification CLI should be named `miniviking test`, not `miniviking smoke`.
   - Compatibility should be verified against a bone-stock, isolated OpenViking installation using real memory ingestion and retrieval workflows, with only OpenViking configuration pointed at Miniviking.
   - Stock OpenViking PyPI `0.1.12` was verified against Miniviking using an isolated Python 3.9 venv and only `OPENVIKING_CONFIG_FILE` pointed at Miniviking. A single local Markdown resource successfully ingested, generated semantic summaries, retrieved resources, ran session-context search, extracted one long-term memory, vectorized it, and retrieved it from `viking://user/memories`.
