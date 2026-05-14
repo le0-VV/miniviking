@@ -17,6 +17,10 @@ class ConfigTests(unittest.TestCase):
     def test_unified_memory_rounding(self) -> None:
         self.assertEqual(unified_memory_gib(8 * 1024**3), 8)
 
+    def test_small_tier_prompt_budget_covers_stock_openviking_memory_prompt(self) -> None:
+        self.assertGreaterEqual(SMALL.max_kv_size, 4096)
+        self.assertGreaterEqual(SMALL.max_prompt_tokens, 4096)
+
     def test_config_round_trip_payload(self) -> None:
         config = config_from_defaults(MEDIUM, mode="embedding", host="127.0.0.1", port=9999)
         payload = {

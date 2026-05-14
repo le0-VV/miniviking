@@ -86,8 +86,8 @@ Initial context and throughput limits are intentionally below each model's maxim
 
 | Tier   | `max_kv_size` | Approx prompt cap | Max output tokens | Embedding batch |
 | ------ | ------------: | ----------------: | ----------------: | --------------: |
-| Small  |          1024 |              2048 |               512 |               2 |
-| Medium |          2048 |              4096 |               768 |               4 |
+| Small  |          4096 |              4096 |               512 |               2 |
+| Medium |          4096 |              4096 |               768 |               4 |
 | Large  |          4096 |              8192 |              1024 |               8 |
 
 OpenViking should point its OpenAI-compatible provider settings at:

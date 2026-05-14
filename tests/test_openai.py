@@ -9,6 +9,7 @@ class OpenAITests(unittest.TestCase):
 
         self.assertEqual(messages[0]["role"], "system")
         self.assertIn("valid JSON", messages[0]["content"])
+        self.assertIn("Never copy sample content", messages[0]["content"])
         self.assertEqual(messages[1], {"role": "user", "content": "extract memory"})
 
     def test_validate_json_content_fails_fast(self) -> None:

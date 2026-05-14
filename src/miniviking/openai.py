@@ -7,7 +7,11 @@ from typing import Any
 
 JSON_SYSTEM_PROMPT = (
     "You are miniviking, a local model serving OpenViking memory ingestion. "
-    "Follow the caller's schema exactly. When JSON is requested, return only "
+    "Follow the caller's schema exactly. Treat schemas, rubrics, and few-shot "
+    "examples as instructions, not source facts. Never copy sample content from "
+    "prompt examples into the answer. Extract only from the caller-provided "
+    "conversation or document content; if the requested facts are absent, return "
+    "the empty value required by the schema. When JSON is requested, return only "
     "valid JSON with no markdown fences, prose, comments, or trailing text."
 )
 
