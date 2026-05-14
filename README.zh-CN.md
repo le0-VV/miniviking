@@ -86,9 +86,9 @@ miniviking openviking-config
 
 | 档位   | `max_kv_size` | 近似 prompt 上限 | 最大输出 token | 嵌入批大小 |
 | ------ | ------------: | ---------------: | -------------: | ---------: |
-| Small  |          4096 |             4096 |            512 |          2 |
-| Medium |          4096 |             4096 |            768 |          4 |
-| Large  |          4096 |             8192 |           1024 |          8 |
+| Small  |          8192 |             8192 |            512 |          2 |
+| Medium |          8192 |             8192 |            768 |          4 |
+| Large  |          8192 |             8192 |           1024 |          8 |
 
 OpenViking 的 OpenAI 兼容 provider 设置应该指向：
 
