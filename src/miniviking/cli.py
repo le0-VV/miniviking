@@ -5,7 +5,7 @@ import json
 import sys
 from pathlib import Path
 
-from .config import CONFIG_PATH, DEFAULT_HOST, DEFAULT_PORT, ServerConfig, config_from_defaults, load_config, write_config
+from .config import CONFIG_PATH, DEFAULT_HOST, DEFAULT_PORT, RuntimeMode, ServerConfig, config_from_defaults, load_config, write_config
 from .host import HostDetectionError, detect_unified_memory_gib
 from .launchd import PLIST_PATH, restart as launchd_restart, start as launchd_start, status as launchd_status, stop as launchd_stop, write_plist
 from .openviking import openviking_config_json
@@ -21,7 +21,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     install = subparsers.add_parser("install", help="write config, download models, and install LaunchAgent")
     install.add_argument("--config", type=Path, default=CONFIG_PATH)
-    install.add_argument("--mode", choices=["llm", "embedding", "both"], default="both")
+    install.add_argument(
+        "--mode",
+        choices=["llm", "embedding", "both"],
+        help="runtime mode; defaults to embedding on 8 GB hosts and both otherwise",
+    )
     install.add_argument("--host", default=DEFAULT_HOST)
     install.add_argument("--port", type=int, default=DEFAULT_PORT)
     install.add_argument("--memory-gib", type=int, help="override detected unified memory for custom installs")
@@ -107,13 +111,15 @@ def main(argv: list[str] | None = None) -> None:
 def _install(args: argparse.Namespace) -> None:
     memory_gib = args.memory_gib if args.memory_gib else detect_unified_memory_gib()
     defaults = defaults_for_memory(memory_gib)
-    config = config_from_defaults(defaults, mode=args.mode, host=args.host, port=args.port)
+    mode = args.mode or default_install_mode(memory_gib)
+    config = config_from_defaults(defaults, mode=mode, host=args.host, port=args.port)
     download_models(config)
     write_config(config, args.config)
     if not args.skip_launch_agent:
         write_plist(args.config)
 
     print(f"Detected memory tier: {defaults.name} ({memory_gib} GB)")
+    print(f"Runtime mode: {config.mode}")
     print(f"Wrote config: {args.config}")
     if args.skip_launch_agent:
         print("Skipped LaunchAgent install")
@@ -122,8 +128,24 @@ def _install(args: argparse.Namespace) -> None:
     print(f"OpenAI-compatible base URL: {config.base_url}")
     if args.print_openviking_config:
         print(openviking_config_json(config))
-    if defaults.warning:
-        print(f"Warning: {defaults.warning}", file=sys.stderr)
+    for warning in install_warnings(memory_gib, defaults.warning, config):
+        print(f"Warning: {warning}", file=sys.stderr)
+
+
+def default_install_mode(memory_gib: int) -> RuntimeMode:
+    return "embedding" if memory_gib <= 8 else "both"
+
+
+def install_warnings(memory_gib: int, tier_warning: str | None, config: ServerConfig) -> list[str]:
+    warnings: list[str] = []
+    if memory_gib <= 8 and not config.llm_enabled:
+        warnings.append(
+            "Local LLM serving is disabled by default on 8 GB machines. "
+            "Use --mode both or --mode llm to opt in."
+        )
+    if config.llm_enabled and tier_warning:
+        warnings.append(tier_warning)
+    return warnings
 
 
 def _uninstall(plist_path: Path) -> None:

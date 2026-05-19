@@ -17,6 +17,9 @@ runtime under `~/.miniviking/runtime` when `miniviking install` or the server is
 first run, so dependency and model downloads happen outside the Homebrew formula
 build.
 
+On 8 GB machines, `miniviking install` defaults to embedding-only mode and does
+not download a local LLM unless the user passes `--mode both` or `--mode llm`.
+
 Before moving the formula to a tagged source release:
 
 1. Create and push the source tag:

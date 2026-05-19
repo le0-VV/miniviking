@@ -34,6 +34,9 @@ class Miniviking < Formula
       Create the Miniviking config and eagerly download selected models:
         miniviking install --config #{etc}/miniviking/config.json --skip-launch-agent
 
+      On 8 GB machines, install defaults to embedding-only mode and does not
+      download a local LLM unless you pass --mode both or --mode llm.
+
       Start the Homebrew service:
         brew services start miniviking
 

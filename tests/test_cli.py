@@ -11,6 +11,49 @@ from miniviking.selftest import ServerTestCheck
 
 
 class CliTests(unittest.TestCase):
+    def test_install_defaults_to_embedding_only_on_8gb(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+
+            with (
+                patch("miniviking.cli.download_models") as download_models,
+                patch("miniviking.cli.write_plist") as write_plist,
+                redirect_stdout(stdout),
+                redirect_stderr(stderr),
+            ):
+                main(["install", "--memory-gib", "8", "--config", str(config_path), "--skip-launch-agent"])
+
+            config = load_config(config_path)
+            downloaded_config = download_models.call_args.args[0]
+            self.assertEqual(config.mode, "embedding")
+            self.assertFalse(downloaded_config.llm_enabled)
+            self.assertTrue(downloaded_config.embedding_enabled)
+            self.assertIn("Runtime mode: embedding", stdout.getvalue())
+            self.assertIn("Local LLM serving is disabled by default", stderr.getvalue())
+            write_plist.assert_not_called()
+
+    def test_install_defaults_to_both_above_8gb(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            stdout = io.StringIO()
+
+            with (
+                patch("miniviking.cli.download_models") as download_models,
+                patch("miniviking.cli.write_plist"),
+                redirect_stdout(stdout),
+                redirect_stderr(io.StringIO()),
+            ):
+                main(["install", "--memory-gib", "12", "--config", str(config_path), "--skip-launch-agent"])
+
+            config = load_config(config_path)
+            downloaded_config = download_models.call_args.args[0]
+            self.assertEqual(config.mode, "both")
+            self.assertTrue(downloaded_config.llm_enabled)
+            self.assertTrue(downloaded_config.embedding_enabled)
+            self.assertIn("Runtime mode: both", stdout.getvalue())
+
     def test_install_can_skip_launch_agent(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.json"
@@ -39,7 +82,7 @@ class CliTests(unittest.TestCase):
             config = load_config(config_path)
             self.assertEqual(config.mode, "llm")
             self.assertIn("Skipped LaunchAgent install", stdout.getvalue())
-            self.assertIn("not ideal", stderr.getvalue())
+            self.assertIn("experimental", stderr.getvalue())
             download_models.assert_called_once()
             write_plist.assert_not_called()
 

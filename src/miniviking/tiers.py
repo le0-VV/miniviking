@@ -21,9 +21,9 @@ class RuntimeDefaults:
 
 
 SMALL_WARNING = (
-    "This 8 GB unified-memory setup is supported for local experiments, but it is "
-    "not ideal for reliable OpenViking memory ingestion. Prefer a provider API "
-    "such as OpenAI for the LLM when reliability matters."
+    "Local LLM serving on low-memory Macs is experimental and is not ideal for "
+    "reliable OpenViking memory ingestion. Prefer a provider API such as OpenAI "
+    "for the LLM when reliability matters."
 )
 
 
