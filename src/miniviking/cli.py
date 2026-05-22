@@ -12,7 +12,7 @@ from .openviking import openviking_config_json
 from .processes import serve_embedding_worker, serve_llm_worker, serve_processes
 from .runtime import DownloadError, download_models
 from .selftest import ServerTestError, run_server_tests
-from .tiers import defaults_for_memory
+from .tiers import MIN_LOCAL_LLM_MEMORY_GIB, defaults_for_memory
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -24,7 +24,7 @@ def build_parser() -> argparse.ArgumentParser:
     install.add_argument(
         "--mode",
         choices=["llm", "embedding", "both"],
-        help="runtime mode; 8 GB hosts support embedding only, otherwise defaults to both",
+        help="runtime mode; hosts below 12 GB support embedding only, otherwise defaults to both",
     )
     install.add_argument("--host", default=DEFAULT_HOST)
     install.add_argument("--port", type=int, default=DEFAULT_PORT)
@@ -133,20 +133,20 @@ def _install(args: argparse.Namespace) -> None:
 
 
 def default_install_mode(memory_gib: int) -> RuntimeMode:
-    return "embedding" if memory_gib <= 8 else "both"
+    return "embedding" if memory_gib < MIN_LOCAL_LLM_MEMORY_GIB else "both"
 
 
 def resolve_install_mode(memory_gib: int, requested_mode: RuntimeMode | None) -> RuntimeMode:
     mode = requested_mode or default_install_mode(memory_gib)
-    if memory_gib <= 8 and mode != "embedding":
-        raise ValueError("8 GB machines are embedding-only; local LLM serving is not supported")
+    if memory_gib < MIN_LOCAL_LLM_MEMORY_GIB and mode != "embedding":
+        raise ValueError("Machines below 12 GB are embedding-only; local LLM serving is not supported")
     return mode
 
 
 def install_warnings(memory_gib: int, tier_warning: str | None, config: ServerConfig) -> list[str]:
     warnings: list[str] = []
-    if memory_gib <= 8 and not config.llm_enabled:
-        warnings.append("Local LLM serving is not supported on 8 GB machines; installing embeddings only.")
+    if memory_gib < MIN_LOCAL_LLM_MEMORY_GIB and not config.llm_enabled:
+        warnings.append("Local LLM serving is not supported below 12 GB unified memory; installing embeddings only.")
     if config.llm_enabled and tier_warning:
         warnings.append(tier_warning)
     return warnings

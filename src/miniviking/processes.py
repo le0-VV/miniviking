@@ -17,9 +17,11 @@ from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 from .config import CONFIG_PATH, ServerConfig
+from .host import detect_unified_memory_gib
 from .openai import error_payload
 from .runtime import ChatResult, MlxRuntime, Runtime
 from .server import serve
+from .tiers import MIN_LOCAL_LLM_MEMORY_GIB
 
 SERVER_ROLE = "miniviking-server"
 LLM_ROLE = "miniviking-llm"
@@ -33,6 +35,7 @@ WORKER_REQUEST_TIMEOUT_SECONDS = 600.0
 
 
 def serve_processes(config: ServerConfig, *, config_path: Path = CONFIG_PATH) -> None:
+    validate_llm_supported_for_host(config)
     supervisor = WorkerSupervisor(config, config_path=config_path)
     previous_sigint = signal.getsignal(signal.SIGINT)
     previous_sigterm = signal.getsignal(signal.SIGTERM)
@@ -50,6 +53,7 @@ def serve_processes(config: ServerConfig, *, config_path: Path = CONFIG_PATH) ->
 
 
 def serve_llm_worker(config: ServerConfig, *, host: str | None = None, port: int | None = None) -> None:
+    validate_llm_supported_for_host(config)
     _serve_worker(
         replace(config, mode="llm"),
         role=LLM_ROLE,
@@ -69,6 +73,14 @@ def serve_embedding_worker(config: ServerConfig, *, host: str | None = None, por
         host=host or WORKER_HOST,
         port=port or embedding_worker_port(config),
     )
+
+
+def validate_llm_supported_for_host(config: ServerConfig, memory_gib: int | None = None) -> None:
+    if not config.llm_enabled:
+        return
+    detected_memory_gib = memory_gib if memory_gib is not None else detect_unified_memory_gib()
+    if detected_memory_gib < MIN_LOCAL_LLM_MEMORY_GIB:
+        raise RuntimeError("Local LLM serving is not supported below 12 GB unified memory")
 
 
 def llm_worker_port(config: ServerConfig) -> int:

@@ -11,30 +11,31 @@ from miniviking.selftest import ServerTestCheck
 
 
 class CliTests(unittest.TestCase):
-    def test_install_defaults_to_embedding_only_on_8gb(self) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            config_path = Path(tmpdir) / "config.json"
-            stdout = io.StringIO()
-            stderr = io.StringIO()
+    def test_install_defaults_to_embedding_only_below_12gb(self) -> None:
+        for memory_gib in (8, 11):
+            with self.subTest(memory_gib=memory_gib), tempfile.TemporaryDirectory() as tmpdir:
+                config_path = Path(tmpdir) / "config.json"
+                stdout = io.StringIO()
+                stderr = io.StringIO()
 
-            with (
-                patch("miniviking.cli.download_models") as download_models,
-                patch("miniviking.cli.write_plist") as write_plist,
-                redirect_stdout(stdout),
-                redirect_stderr(stderr),
-            ):
-                main(["install", "--memory-gib", "8", "--config", str(config_path), "--skip-launch-agent"])
+                with (
+                    patch("miniviking.cli.download_models") as download_models,
+                    patch("miniviking.cli.write_plist") as write_plist,
+                    redirect_stdout(stdout),
+                    redirect_stderr(stderr),
+                ):
+                    main(["install", "--memory-gib", str(memory_gib), "--config", str(config_path), "--skip-launch-agent"])
 
-            config = load_config(config_path)
-            downloaded_config = download_models.call_args.args[0]
-            self.assertEqual(config.mode, "embedding")
-            self.assertFalse(downloaded_config.llm_enabled)
-            self.assertTrue(downloaded_config.embedding_enabled)
-            self.assertIn("Runtime mode: embedding", stdout.getvalue())
-            self.assertIn("Local LLM serving is not supported", stderr.getvalue())
-            write_plist.assert_not_called()
+                config = load_config(config_path)
+                downloaded_config = download_models.call_args.args[0]
+                self.assertEqual(config.mode, "embedding")
+                self.assertFalse(downloaded_config.llm_enabled)
+                self.assertTrue(downloaded_config.embedding_enabled)
+                self.assertIn("Runtime mode: embedding", stdout.getvalue())
+                self.assertIn("Local LLM serving is not supported below 12 GB", stderr.getvalue())
+                write_plist.assert_not_called()
 
-    def test_install_defaults_to_both_above_8gb(self) -> None:
+    def test_install_defaults_to_both_at_12gb(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.json"
             stdout = io.StringIO()
@@ -54,37 +55,38 @@ class CliTests(unittest.TestCase):
             self.assertTrue(downloaded_config.embedding_enabled)
             self.assertIn("Runtime mode: both", stdout.getvalue())
 
-    def test_install_rejects_llm_modes_on_8gb(self) -> None:
-        for mode in ("llm", "both"):
-            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as tmpdir:
-                config_path = Path(tmpdir) / "config.json"
-                stderr = io.StringIO()
+    def test_install_rejects_llm_modes_below_12gb(self) -> None:
+        for memory_gib in (8, 11):
+            for mode in ("llm", "both"):
+                with self.subTest(memory_gib=memory_gib, mode=mode), tempfile.TemporaryDirectory() as tmpdir:
+                    config_path = Path(tmpdir) / "config.json"
+                    stderr = io.StringIO()
 
-                with (
-                    patch("miniviking.cli.download_models") as download_models,
-                    patch("miniviking.cli.write_plist") as write_plist,
-                    redirect_stdout(io.StringIO()),
-                    redirect_stderr(stderr),
-                ):
-                    with self.assertRaises(SystemExit) as raised:
-                        main(
-                            [
-                                "install",
-                                "--memory-gib",
-                                "8",
-                                "--mode",
-                                mode,
-                                "--config",
-                                str(config_path),
-                                "--skip-launch-agent",
-                            ]
-                        )
+                    with (
+                        patch("miniviking.cli.download_models") as download_models,
+                        patch("miniviking.cli.write_plist") as write_plist,
+                        redirect_stdout(io.StringIO()),
+                        redirect_stderr(stderr),
+                    ):
+                        with self.assertRaises(SystemExit) as raised:
+                            main(
+                                [
+                                    "install",
+                                    "--memory-gib",
+                                    str(memory_gib),
+                                    "--mode",
+                                    mode,
+                                    "--config",
+                                    str(config_path),
+                                    "--skip-launch-agent",
+                                ]
+                            )
 
-                self.assertEqual(raised.exception.code, 1)
-                self.assertIn("8 GB machines are embedding-only", stderr.getvalue())
-                self.assertFalse(config_path.exists())
-                download_models.assert_not_called()
-                write_plist.assert_not_called()
+                    self.assertEqual(raised.exception.code, 1)
+                    self.assertIn("Machines below 12 GB are embedding-only", stderr.getvalue())
+                    self.assertFalse(config_path.exists())
+                    download_models.assert_not_called()
+                    write_plist.assert_not_called()
 
     def test_install_can_skip_launch_agent(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -15,6 +15,7 @@ from miniviking.processes import (
     WorkerServer,
     embedding_worker_port,
     llm_worker_port,
+    validate_llm_supported_for_host,
     worker_command,
 )
 from miniviking.runtime import ChatResult
@@ -78,6 +79,17 @@ class ProcessTests(unittest.TestCase):
             self._stop_worker(server, thread)
 
         self.assertEqual(payload, {"status": "ok", "role": LLM_ROLE})
+
+    def test_llm_runtime_guard_rejects_hosts_below_12gb(self) -> None:
+        config = config_from_defaults(SMALL, mode="llm")
+
+        with self.assertRaisesRegex(RuntimeError, "below 12 GB"):
+            validate_llm_supported_for_host(config, memory_gib=11)
+
+    def test_llm_runtime_guard_allows_embedding_only_below_12gb(self) -> None:
+        config = config_from_defaults(SMALL, mode="embedding")
+
+        validate_llm_supported_for_host(config, memory_gib=8)
 
     def _start_worker(self, role: str) -> tuple[WorkerServer, threading.Thread]:
         server = WorkerServer(("127.0.0.1", 0), config_from_defaults(SMALL), role, FakeRuntime())

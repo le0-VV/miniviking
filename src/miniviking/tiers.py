@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 GIB = 1024**3
+MIN_LOCAL_LLM_MEMORY_GIB = 12
 
 
 @dataclass(frozen=True)
