@@ -15,6 +15,6 @@ cat <<'EOF'
 Local RC checks passed.
 
 Before public release, also run the stock OpenViking 0.3.14 v2 ingestion/retrieval
-smoke with Gemma E2B and Gemma E4B, then verify Homebrew install and service
-lifecycle from a clean runtime directory.
+smoke with Gemma E4B, then verify Homebrew install and service lifecycle from a
+clean runtime directory.
 EOF

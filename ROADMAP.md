@@ -8,7 +8,7 @@
 - [x] Use `mlx-community/embeddinggemma-300m-4bit` for every memory budget.
 - [x] Reject local LLM serving below 12 GB unified memory; those hosts are embedding-only/provider-LLM.
 - [x] Route Gemma 4 OpenViking memory extraction through the prompt-compaction, JSON repair, and semantic-filter adapter.
-- [ ] Verify stock OpenViking `0.3.14` default v2 ingestion, memory extraction, vectorization, and retrieval with Gemma E2B.
+- [x] Verify stock OpenViking `0.3.14` default v2 ingestion, memory extraction, vectorization, and retrieval with Gemma E2B.
 - [ ] Verify the same stock OpenViking v2 flow with Gemma E4B before declaring the >16 GB tier supported.
 - [ ] Verify Homebrew install, runtime bootstrap, service lifecycle, and `miniviking test` from a clean runtime directory.
 - [ ] Prepare public release metadata after RC validation: version bump, tag, formula tarball URL, SHA, audit, and release notes.
