@@ -72,18 +72,17 @@ miniviking test
 miniviking openviking-config
 ```
 
-安装时会检测主机内存，并把配置写入 `~/.miniviking/config.json`。在 8 GB 机器上，`miniviking install` 默认使用 `mode=embedding`，只下载 embedding 模型，不启动本地 LLM。如果要在这些机器上显式启用本地 LLM，可以传 `--mode both` 或 `--mode llm`；如果关注 OpenViking 记忆抽取可靠性，仍建议使用 OpenAI 等 provider API。
+安装时会检测主机内存，并把配置写入 `~/.miniviking/config.json`。在低于 12 GB 统一内存的机器上，`miniviking install` 默认使用 `mode=embedding`，只下载 embedding 模型，并拒绝本地 LLM 模式。这些机器需要在 OpenViking 中单独配置 LLM provider，例如使用 API provider。
 
 端口、运行模式和模型都可以在配置文件里修改，也可以在安装时通过 CLI 参数自定义。
 
 内存档位默认值：
 
-| 统一内存             | 默认模式     | 嵌入模型                                 | 本地 LLM 默认值                            | 后端      |
-| -------------------- | ------------ | ---------------------------------------- | ------------------------------------------ | --------- |
-| 8 GB 或更低          | `embedding`  | `mlx-community/embeddinggemma-300m-4bit` | 默认禁用；显式启用时使用 `Llama-3.2-1B`    | `mlx-lm`  |
-| 高于 8 GB，低于 12 GB | `both`       | `mlx-community/embeddinggemma-300m-4bit` | `mlx-community/Llama-3.2-1B-Instruct-4bit` | `mlx-lm`  |
-| 12 GB 到 16 GB       | `both`       | `mlx-community/embeddinggemma-300m-4bit` | `mlx-community/gemma-4-e2b-it-4bit`        | `mlx-vlm` |
-| 高于 16 GB           | `both`       | `mlx-community/embeddinggemma-300m-4bit` | `mlx-community/gemma-4-e4b-it-4bit`        | `mlx-vlm` |
+| 统一内存       | 默认模式     | 嵌入模型                                 | 本地 LLM 默认值                             | 后端      |
+| -------------- | ------------ | ---------------------------------------- | ------------------------------------------- | --------- |
+| 低于 12 GB     | `embedding`  | `mlx-community/embeddinggemma-300m-4bit` | 不支持；需要单独配置 OpenViking LLM provider | N/A       |
+| 12 GB 到 16 GB | `both`       | `mlx-community/embeddinggemma-300m-4bit` | `mlx-community/gemma-4-e2b-it-4bit`         | `mlx-vlm` |
+| 高于 16 GB     | `both`       | `mlx-community/embeddinggemma-300m-4bit` | `mlx-community/gemma-4-e4b-it-4bit`         | `mlx-vlm` |
 
 初始上下文和吞吐限制刻意低于各模型的最大上下文窗口：
 
@@ -100,7 +99,15 @@ api_base = "http://127.0.0.1:8745/v1"
 api_key = "unused"
 ```
 
-在默认的 8 GB embedding-only 安装中，`miniviking openviking-config` 只会输出 embedding provider 配置。OpenViking 的 LLM provider 需要另行配置，例如使用 API provider。
+在默认的低于 12 GB embedding-only 安装中，`miniviking openviking-config` 只会输出 embedding provider 配置。OpenViking 的 LLM provider 需要另行配置，例如使用 API provider。
+
+在 12 GB 或更高内存的机器上，Miniviking 会检测原版 OpenViking v2 记忆抽取请求，通过 Gemma memory adapter 压缩提示词，并返回 OpenViking 兼容的记忆操作。
+
+内部 RC 验证：
+
+```sh
+bash scripts/rc_verify.sh
+```
 
 ## 👉👈
 

@@ -1,11 +1,21 @@
 # miniviking Roadmap
 
-## Phase 1: Local OpenViking Runtime
+## V1 Internal RC
 
-- Provide an OpenAI-compatible localhost API for chat completions, embeddings, and model listing.
-- Select default MLX models and memory-safe runtime limits from host unified memory.
-- Support `llm`, `embedding`, and `both` runtime modes.
-- Install as a per-user macOS LaunchAgent that starts at login and eagerly loads configured models.
-- Download and validate model snapshots during install so startup fails fast when dependencies or models are unavailable.
-- Keep configuration file based, with host/port/model/runtime settings customizable.
-- Publish a Homebrew tap formula that builds the Apple Silicon Rust launcher from source.
+- [x] Provide OpenAI-compatible localhost endpoints for model listing, chat completions, embeddings, and health.
+- [x] Package a single Rust launcher that supervises explicit server, LLM worker, and embedding worker processes.
+- [x] Install as a per-user LaunchAgent or Homebrew service and eagerly download selected models during install.
+- [x] Use `mlx-community/embeddinggemma-300m-4bit` for every memory budget.
+- [x] Reject local LLM serving below 12 GB unified memory; those hosts are embedding-only/provider-LLM.
+- [x] Route Gemma 4 OpenViking memory extraction through the prompt-compaction, JSON repair, and semantic-filter adapter.
+- [ ] Verify stock OpenViking `0.3.14` default v2 ingestion, memory extraction, vectorization, and retrieval with Gemma E2B.
+- [ ] Verify the same stock OpenViking v2 flow with Gemma E4B before declaring the >16 GB tier supported.
+- [ ] Verify Homebrew install, runtime bootstrap, service lifecycle, and `miniviking test` from a clean runtime directory.
+- [ ] Prepare public release metadata after RC validation: version bump, tag, formula tarball URL, SHA, audit, and release notes.
+
+## Completed Investigation Context
+
+- Low-RAM local LLM candidates below 12 GB did not prove reliable enough for unattended OpenViking memory ingestion.
+- Llama 1B/3B, Granite, SmolLM3, Phi, and other small candidates either failed semantic memory quality, schema fidelity, memory headroom, or tokenizer/runtime compatibility.
+- Gemma E2B became viable only after prompt compaction plus host-side JSON repair, schema normalization, and semantic filtering.
+- Direct `mlx-vlm` schema-constrained decoding remains disabled because the Gemma E2B probe hit an `LLGuidance matcher error`.

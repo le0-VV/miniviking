@@ -17,21 +17,22 @@ runtime under `~/.miniviking/runtime` when `miniviking install` or the server is
 first run, so dependency and model downloads happen outside the Homebrew formula
 build.
 
-On 8 GB machines, `miniviking install` defaults to embedding-only mode and does
-not download a local LLM unless the user passes `--mode both` or `--mode llm`.
+On machines below 12 GB unified memory, `miniviking install` defaults to
+embedding-only mode and rejects `--mode both` or `--mode llm`. Configure
+OpenViking's LLM provider separately on those machines.
 
 Before moving the formula to a tagged source release:
 
 1. Create and push the source tag:
 
    ```text
-   v0.1.0
+   v1.0.0
    ```
 
 2. Replace the temporary `branch: "main"` source URL with a tagged source archive:
 
    ```text
-   https://github.com/le0-VV/miniviking/archive/refs/tags/v0.1.0.tar.gz
+   https://github.com/le0-VV/miniviking/archive/refs/tags/v1.0.0.tar.gz
    ```
 
 3. Add the source archive SHA to `Formula/miniviking.rb`.

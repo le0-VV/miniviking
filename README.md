@@ -72,18 +72,17 @@ Print the OpenViking config snippet for the current miniviking config:
 miniviking openviking-config
 ```
 
-The installer detects host memory and writes a config under `~/.miniviking/config.json`. On 8 GB machines, `miniviking install` defaults to `mode=embedding`, downloads only the embedding model, and does not start a local LLM. To opt into local LLM serving on those machines, pass `--mode both` or `--mode llm`; provider APIs such as OpenAI are recommended when memory-ingestion reliability matters.
+The installer detects host memory and writes a config under `~/.miniviking/config.json`. On machines below 12 GB unified memory, `miniviking install` defaults to `mode=embedding`, downloads only the embedding model, and rejects local LLM modes. Configure OpenViking's LLM provider separately on those machines, for example with an API provider.
 
 The port, runtime mode, and models can be customized in the config file or with CLI flags during install.
 
 Memory-tier defaults:
 
-| Unified memory               | Default mode | Embedding model                          | Local LLM default                         | Backend   |
-| ---------------------------- | ------------ | ---------------------------------------- | ----------------------------------------- | --------- |
-| 8 GB or less                 | `embedding`  | `mlx-community/embeddinggemma-300m-4bit` | Disabled; opt-in uses `Llama-3.2-1B`      | `mlx-lm`  |
-| More than 8 GB, less than 12 GB | `both`       | `mlx-community/embeddinggemma-300m-4bit` | `mlx-community/Llama-3.2-1B-Instruct-4bit` | `mlx-lm`  |
-| 12 GB to 16 GB               | `both`       | `mlx-community/embeddinggemma-300m-4bit` | `mlx-community/gemma-4-e2b-it-4bit`       | `mlx-vlm` |
-| More than 16 GB              | `both`       | `mlx-community/embeddinggemma-300m-4bit` | `mlx-community/gemma-4-e4b-it-4bit`       | `mlx-vlm` |
+| Unified memory | Default mode | Embedding model                          | Local LLM default                                  | Backend   |
+| -------------- | ------------ | ---------------------------------------- | -------------------------------------------------- | --------- |
+| Less than 12 GB | `embedding`  | `mlx-community/embeddinggemma-300m-4bit` | Unsupported; use a separate OpenViking LLM provider | N/A       |
+| 12 GB to 16 GB | `both`       | `mlx-community/embeddinggemma-300m-4bit` | `mlx-community/gemma-4-e2b-it-4bit`                | `mlx-vlm` |
+| More than 16 GB | `both`      | `mlx-community/embeddinggemma-300m-4bit` | `mlx-community/gemma-4-e4b-it-4bit`                | `mlx-vlm` |
 
 Initial context and throughput limits are intentionally below each model's maximum context window:
 
@@ -100,7 +99,15 @@ api_base = "http://127.0.0.1:8745/v1"
 api_key = "unused"
 ```
 
-For the default 8 GB embedding-only install, `miniviking openviking-config` emits only the embedding provider block. Configure OpenViking's LLM provider separately, for example with an API provider.
+For the default below-12 GB embedding-only install, `miniviking openviking-config` emits only the embedding provider block. Configure OpenViking's LLM provider separately, for example with an API provider.
+
+On 12 GB or larger hosts, Miniviking detects stock OpenViking v2 memory-extraction requests and compacts them through the Gemma memory adapter before returning OpenViking-compatible memory operations.
+
+Internal RC verification:
+
+```sh
+bash scripts/rc_verify.sh
+```
 
 ## 👉👈
 
