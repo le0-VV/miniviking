@@ -31,7 +31,7 @@ class CliTests(unittest.TestCase):
             self.assertFalse(downloaded_config.llm_enabled)
             self.assertTrue(downloaded_config.embedding_enabled)
             self.assertIn("Runtime mode: embedding", stdout.getvalue())
-            self.assertIn("Local LLM serving is disabled by default", stderr.getvalue())
+            self.assertIn("Local LLM serving is not supported", stderr.getvalue())
             write_plist.assert_not_called()
 
     def test_install_defaults_to_both_above_8gb(self) -> None:
@@ -54,23 +54,54 @@ class CliTests(unittest.TestCase):
             self.assertTrue(downloaded_config.embedding_enabled)
             self.assertIn("Runtime mode: both", stdout.getvalue())
 
+    def test_install_rejects_llm_modes_on_8gb(self) -> None:
+        for mode in ("llm", "both"):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as tmpdir:
+                config_path = Path(tmpdir) / "config.json"
+                stderr = io.StringIO()
+
+                with (
+                    patch("miniviking.cli.download_models") as download_models,
+                    patch("miniviking.cli.write_plist") as write_plist,
+                    redirect_stdout(io.StringIO()),
+                    redirect_stderr(stderr),
+                ):
+                    with self.assertRaises(SystemExit) as raised:
+                        main(
+                            [
+                                "install",
+                                "--memory-gib",
+                                "8",
+                                "--mode",
+                                mode,
+                                "--config",
+                                str(config_path),
+                                "--skip-launch-agent",
+                            ]
+                        )
+
+                self.assertEqual(raised.exception.code, 1)
+                self.assertIn("8 GB machines are embedding-only", stderr.getvalue())
+                self.assertFalse(config_path.exists())
+                download_models.assert_not_called()
+                write_plist.assert_not_called()
+
     def test_install_can_skip_launch_agent(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.json"
             stdout = io.StringIO()
-            stderr = io.StringIO()
 
             with (
                 patch("miniviking.cli.download_models") as download_models,
                 patch("miniviking.cli.write_plist") as write_plist,
                 redirect_stdout(stdout),
-                redirect_stderr(stderr),
+                redirect_stderr(io.StringIO()),
             ):
                 main(
                     [
                         "install",
                         "--memory-gib",
-                        "8",
+                        "12",
                         "--mode",
                         "llm",
                         "--config",
@@ -82,7 +113,6 @@ class CliTests(unittest.TestCase):
             config = load_config(config_path)
             self.assertEqual(config.mode, "llm")
             self.assertIn("Skipped LaunchAgent install", stdout.getvalue())
-            self.assertIn("experimental", stderr.getvalue())
             download_models.assert_called_once()
             write_plist.assert_not_called()
 
@@ -95,7 +125,7 @@ class CliTests(unittest.TestCase):
                 redirect_stdout(io.StringIO()),
                 redirect_stderr(io.StringIO()),
             ):
-                main(["install", "--memory-gib", "8", "--mode", "llm", "--config", str(config_path), "--skip-launch-agent"])
+                main(["install", "--memory-gib", "12", "--mode", "llm", "--config", str(config_path), "--skip-launch-agent"])
 
             with patch("miniviking.cli.serve_processes") as serve_processes:
                 main(["serve", "--config", str(config_path)])
@@ -111,7 +141,7 @@ class CliTests(unittest.TestCase):
                 redirect_stdout(io.StringIO()),
                 redirect_stderr(io.StringIO()),
             ):
-                main(["install", "--memory-gib", "8", "--mode", "both", "--config", str(config_path), "--skip-launch-agent"])
+                main(["install", "--memory-gib", "12", "--mode", "both", "--config", str(config_path), "--skip-launch-agent"])
 
             with patch("miniviking.cli.serve_llm_worker") as serve_llm_worker:
                 main(["miniviking-llm", "--config", str(config_path), "--host", "127.0.0.1", "--port", "9001"])
@@ -131,7 +161,7 @@ class CliTests(unittest.TestCase):
                 redirect_stdout(io.StringIO()),
                 redirect_stderr(io.StringIO()),
             ):
-                main(["install", "--memory-gib", "8", "--mode", "both", "--config", str(config_path), "--skip-launch-agent"])
+                main(["install", "--memory-gib", "12", "--mode", "both", "--config", str(config_path), "--skip-launch-agent"])
 
             stdout = io.StringIO()
             with (

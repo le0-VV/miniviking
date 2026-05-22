@@ -24,7 +24,7 @@ def build_parser() -> argparse.ArgumentParser:
     install.add_argument(
         "--mode",
         choices=["llm", "embedding", "both"],
-        help="runtime mode; defaults to embedding on 8 GB hosts and both otherwise",
+        help="runtime mode; 8 GB hosts support embedding only, otherwise defaults to both",
     )
     install.add_argument("--host", default=DEFAULT_HOST)
     install.add_argument("--port", type=int, default=DEFAULT_PORT)
@@ -111,7 +111,7 @@ def main(argv: list[str] | None = None) -> None:
 def _install(args: argparse.Namespace) -> None:
     memory_gib = args.memory_gib if args.memory_gib else detect_unified_memory_gib()
     defaults = defaults_for_memory(memory_gib)
-    mode = args.mode or default_install_mode(memory_gib)
+    mode = resolve_install_mode(memory_gib, args.mode)
     config = config_from_defaults(defaults, mode=mode, host=args.host, port=args.port)
     download_models(config)
     write_config(config, args.config)
@@ -136,13 +136,17 @@ def default_install_mode(memory_gib: int) -> RuntimeMode:
     return "embedding" if memory_gib <= 8 else "both"
 
 
+def resolve_install_mode(memory_gib: int, requested_mode: RuntimeMode | None) -> RuntimeMode:
+    mode = requested_mode or default_install_mode(memory_gib)
+    if memory_gib <= 8 and mode != "embedding":
+        raise ValueError("8 GB machines are embedding-only; local LLM serving is not supported")
+    return mode
+
+
 def install_warnings(memory_gib: int, tier_warning: str | None, config: ServerConfig) -> list[str]:
     warnings: list[str] = []
     if memory_gib <= 8 and not config.llm_enabled:
-        warnings.append(
-            "Local LLM serving is disabled by default on 8 GB machines. "
-            "Use --mode both or --mode llm to opt in."
-        )
+        warnings.append("Local LLM serving is not supported on 8 GB machines; installing embeddings only.")
     if config.llm_enabled and tier_warning:
         warnings.append(tier_warning)
     return warnings
