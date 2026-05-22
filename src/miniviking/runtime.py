@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from .config import ServerConfig
+from .memory_adapter import finalize_memory_response, maybe_adapt_openviking_memory_request
 
 
 def estimate_tokens(text: str) -> int:
@@ -89,17 +90,30 @@ class MlxRuntime:
         if max_tokens > self.config.generation.max_tokens:
             raise ValueError(f"max_tokens exceeds configured limit of {self.config.generation.max_tokens}")
 
+        adapter_request = maybe_adapt_openviking_memory_request(
+            messages,
+            payload,
+            model_id=self.config.models.llm_model,
+            llm_backend=self.config.models.llm_backend,
+            enabled=self.config.generation.openviking_memory_adapter,
+        )
+        generation_messages = adapter_request.messages if adapter_request is not None else messages
+
         prompt_tokens = estimate_message_tokens(messages)
-        if prompt_tokens > self.config.generation.max_prompt_tokens:
+        generation_prompt_tokens = estimate_message_tokens(generation_messages)
+        if generation_prompt_tokens > self.config.generation.max_prompt_tokens:
             raise ValueError(
-                f"prompt has approximately {prompt_tokens} tokens, "
+                f"prompt has approximately {generation_prompt_tokens} tokens, "
                 f"exceeding max_prompt_tokens={self.config.generation.max_prompt_tokens}"
             )
 
         if self.config.models.llm_backend == "mlx-vlm":
-            content = self._chat_with_vlm(messages, max_tokens)
+            content = self._chat_with_vlm(generation_messages, max_tokens)
         else:
-            content = self._chat_with_lm(messages, max_tokens)
+            content = self._chat_with_lm(generation_messages, max_tokens)
+
+        if adapter_request is not None:
+            content = finalize_memory_response(content, adapter_request.transcript)
 
         return ChatResult(
             content=content.strip(),

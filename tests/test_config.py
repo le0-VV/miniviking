@@ -19,6 +19,11 @@ class ConfigTests(unittest.TestCase):
             with self.subTest(tier=tier.name):
                 self.assertEqual(tier.embedding_model, "mlx-community/embeddinggemma-300m-4bit")
 
+    def test_openviking_memory_adapter_defaults_to_gemma_vlm_only(self) -> None:
+        self.assertFalse(config_from_defaults(SMALL).generation.openviking_memory_adapter)
+        self.assertTrue(config_from_defaults(MEDIUM).generation.openviking_memory_adapter)
+        self.assertTrue(config_from_defaults(LARGE).generation.openviking_memory_adapter)
+
     def test_unified_memory_rounding(self) -> None:
         self.assertEqual(unified_memory_gib(8 * 1024**3), 8)
 
@@ -46,6 +51,7 @@ class ConfigTests(unittest.TestCase):
                 "max_kv_size": config.generation.max_kv_size,
                 "max_prompt_tokens": config.generation.max_prompt_tokens,
                 "max_tokens": config.generation.max_tokens,
+                "openviking_memory_adapter": config.generation.openviking_memory_adapter,
             },
             "embedding": {
                 "batch_size": config.embedding.batch_size,
@@ -57,6 +63,59 @@ class ConfigTests(unittest.TestCase):
         loaded = config_from_payload(payload)
 
         self.assertEqual(loaded, config)
+
+    def test_old_config_payload_enables_adapter_for_gemma_vlm(self) -> None:
+        config = config_from_defaults(MEDIUM)
+        payload = {
+            "models": {
+                "embedding_model": config.models.embedding_model,
+                "llm_model": config.models.llm_model,
+                "llm_backend": config.models.llm_backend,
+                "embedding_dimensions": config.models.embedding_dimensions,
+            },
+            "generation": {
+                "temperature": config.generation.temperature,
+                "max_kv_size": config.generation.max_kv_size,
+                "max_prompt_tokens": config.generation.max_prompt_tokens,
+                "max_tokens": config.generation.max_tokens,
+            },
+            "embedding": {
+                "batch_size": config.embedding.batch_size,
+                "normalize": config.embedding.normalize,
+                "max_input_tokens": config.embedding.max_input_tokens,
+            },
+        }
+
+        loaded = config_from_payload(payload)
+
+        self.assertTrue(loaded.generation.openviking_memory_adapter)
+
+    def test_config_payload_can_disable_memory_adapter(self) -> None:
+        config = config_from_defaults(MEDIUM)
+        payload = {
+            "models": {
+                "embedding_model": config.models.embedding_model,
+                "llm_model": config.models.llm_model,
+                "llm_backend": config.models.llm_backend,
+                "embedding_dimensions": config.models.embedding_dimensions,
+            },
+            "generation": {
+                "temperature": config.generation.temperature,
+                "max_kv_size": config.generation.max_kv_size,
+                "max_prompt_tokens": config.generation.max_prompt_tokens,
+                "max_tokens": config.generation.max_tokens,
+                "openviking_memory_adapter": False,
+            },
+            "embedding": {
+                "batch_size": config.embedding.batch_size,
+                "normalize": config.embedding.normalize,
+                "max_input_tokens": config.embedding.max_input_tokens,
+            },
+        }
+
+        loaded = config_from_payload(payload)
+
+        self.assertFalse(loaded.generation.openviking_memory_adapter)
 
 
 if __name__ == "__main__":

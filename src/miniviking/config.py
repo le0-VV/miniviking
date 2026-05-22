@@ -6,6 +6,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
 
+from .memory_adapter import default_memory_adapter_enabled
 from .tiers import RuntimeDefaults
 
 RuntimeMode = Literal["llm", "embedding", "both"]
@@ -30,6 +31,7 @@ class GenerationConfig:
     max_kv_size: int
     max_prompt_tokens: int
     max_tokens: int
+    openviking_memory_adapter: bool
 
 
 @dataclass(frozen=True)
@@ -85,6 +87,7 @@ def config_from_defaults(
             max_kv_size=defaults.max_kv_size,
             max_prompt_tokens=defaults.max_prompt_tokens,
             max_tokens=defaults.max_tokens,
+            openviking_memory_adapter=default_memory_adapter_enabled(defaults.llm_model, defaults.llm_backend),
         ),
         embedding=EmbeddingConfig(
             batch_size=defaults.embedding_batch_size,
@@ -100,6 +103,18 @@ def _read_runtime_mode(value: str) -> RuntimeMode:
     return value  # type: ignore[return-value]
 
 
+def _read_bool(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.lower()
+        if lowered in {"true", "1", "yes"}:
+            return True
+        if lowered in {"false", "0", "no"}:
+            return False
+    return bool(value)
+
+
 def load_config(path: Path = CONFIG_PATH) -> ServerConfig:
     with path.open("r", encoding="utf-8") as fh:
         payload = json.load(fh)
@@ -113,6 +128,12 @@ def config_from_payload(payload: dict[str, object]) -> ServerConfig:
     if not isinstance(models, dict) or not isinstance(generation, dict) or not isinstance(embedding, dict):
         raise ValueError("config must contain models, generation, and embedding objects")
 
+    llm_model = str(models["llm_model"])
+    llm_backend = str(models.get("llm_backend") or _infer_llm_backend(llm_model))
+    openviking_memory_adapter = generation.get("openviking_memory_adapter")
+    if openviking_memory_adapter is None:
+        openviking_memory_adapter = default_memory_adapter_enabled(llm_model, llm_backend)
+
     return ServerConfig(
         host=str(payload.get("host", DEFAULT_HOST)),
         port=int(payload.get("port", DEFAULT_PORT)),
@@ -120,8 +141,8 @@ def config_from_payload(payload: dict[str, object]) -> ServerConfig:
         tier=str(payload.get("tier", "custom")),
         models=ModelConfig(
             embedding_model=str(models["embedding_model"]),
-            llm_model=str(models["llm_model"]),
-            llm_backend=str(models.get("llm_backend") or _infer_llm_backend(str(models["llm_model"]))),
+            llm_model=llm_model,
+            llm_backend=llm_backend,
             embedding_dimensions=int(models["embedding_dimensions"]),
         ),
         generation=GenerationConfig(
@@ -129,6 +150,7 @@ def config_from_payload(payload: dict[str, object]) -> ServerConfig:
             max_kv_size=int(generation["max_kv_size"]),
             max_prompt_tokens=int(generation["max_prompt_tokens"]),
             max_tokens=int(generation["max_tokens"]),
+            openviking_memory_adapter=_read_bool(openviking_memory_adapter),
         ),
         embedding=EmbeddingConfig(
             batch_size=int(embedding["batch_size"]),

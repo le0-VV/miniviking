@@ -7,6 +7,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from .config import ServerConfig
+from .memory_adapter import MemoryAdapterError
 from .openai import (
     ApiError,
     chat_completion_response,
@@ -64,6 +65,8 @@ class MinivikingHandler(BaseHTTPRequestHandler):
             raise ApiError(404, "not found", "not_found")
         except ApiError as exc:
             self._write_json(error_payload(exc.message, exc.error_type), exc.status)
+        except MemoryAdapterError as exc:
+            self._write_json(error_payload(str(exc), "model_response_error"), HTTPStatus.BAD_GATEWAY)
         except ValueError as exc:
             self._write_json(error_payload(str(exc)), HTTPStatus.BAD_REQUEST)
         except RuntimeError as exc:
