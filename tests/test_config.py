@@ -14,6 +14,11 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(SMALL.llm_backend, "mlx-lm")
         self.assertEqual(MEDIUM.llm_backend, "mlx-vlm")
 
+    def test_embedding_model_uses_4bit_for_all_tiers(self) -> None:
+        for tier in (SMALL, MEDIUM, LARGE):
+            with self.subTest(tier=tier.name):
+                self.assertEqual(tier.embedding_model, "mlx-community/embeddinggemma-300m-4bit")
+
     def test_unified_memory_rounding(self) -> None:
         self.assertEqual(unified_memory_gib(8 * 1024**3), 8)
 

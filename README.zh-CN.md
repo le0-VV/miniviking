@@ -82,8 +82,8 @@ miniviking openviking-config
 | -------------------- | ------------ | ---------------------------------------- | ------------------------------------------ | --------- |
 | 8 GB 或更低          | `embedding`  | `mlx-community/embeddinggemma-300m-4bit` | 默认禁用；显式启用时使用 `Llama-3.2-1B`    | `mlx-lm`  |
 | 高于 8 GB，低于 12 GB | `both`       | `mlx-community/embeddinggemma-300m-4bit` | `mlx-community/Llama-3.2-1B-Instruct-4bit` | `mlx-lm`  |
-| 12 GB 到 16 GB       | `both`       | `mlx-community/embeddinggemma-300m-8bit` | `mlx-community/gemma-4-e2b-it-4bit`        | `mlx-vlm` |
-| 高于 16 GB           | `both`       | `mlx-community/embeddinggemma-300m-bf16` | `mlx-community/gemma-4-e4b-it-4bit`        | `mlx-vlm` |
+| 12 GB 到 16 GB       | `both`       | `mlx-community/embeddinggemma-300m-4bit` | `mlx-community/gemma-4-e2b-it-4bit`        | `mlx-vlm` |
+| 高于 16 GB           | `both`       | `mlx-community/embeddinggemma-300m-4bit` | `mlx-community/gemma-4-e4b-it-4bit`        | `mlx-vlm` |
 
 初始上下文和吞吐限制刻意低于各模型的最大上下文窗口：
 

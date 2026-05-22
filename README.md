@@ -82,8 +82,8 @@ Memory-tier defaults:
 | ---------------------------- | ------------ | ---------------------------------------- | ----------------------------------------- | --------- |
 | 8 GB or less                 | `embedding`  | `mlx-community/embeddinggemma-300m-4bit` | Disabled; opt-in uses `Llama-3.2-1B`      | `mlx-lm`  |
 | More than 8 GB, less than 12 GB | `both`       | `mlx-community/embeddinggemma-300m-4bit` | `mlx-community/Llama-3.2-1B-Instruct-4bit` | `mlx-lm`  |
-| 12 GB to 16 GB               | `both`       | `mlx-community/embeddinggemma-300m-8bit` | `mlx-community/gemma-4-e2b-it-4bit`       | `mlx-vlm` |
-| More than 16 GB              | `both`       | `mlx-community/embeddinggemma-300m-bf16` | `mlx-community/gemma-4-e4b-it-4bit`       | `mlx-vlm` |
+| 12 GB to 16 GB               | `both`       | `mlx-community/embeddinggemma-300m-4bit` | `mlx-community/gemma-4-e2b-it-4bit`       | `mlx-vlm` |
+| More than 16 GB              | `both`       | `mlx-community/embeddinggemma-300m-4bit` | `mlx-community/gemma-4-e4b-it-4bit`       | `mlx-vlm` |
 
 Initial context and throughput limits are intentionally below each model's maximum context window:
 
