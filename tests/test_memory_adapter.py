@@ -6,6 +6,7 @@ from miniviking.memory_adapter import (
     extract_real_transcript,
     filter_memory_payload,
     finalize_memory_response,
+    memory_payload_to_openviking_v2_operations,
     maybe_adapt_openviking_memory_request,
     normalize_memory_payload,
     repair_memory_json,
@@ -42,8 +43,48 @@ def openviking_v1_prompt(conversation: str) -> str:
     )
 
 
+def openviking_v2_messages(conversation: str) -> list[dict[str, str]]:
+    return [
+        {
+            "role": "system",
+            "content": (
+                "You are a memory extraction agent.\n"
+                "## Output Format\n"
+                "The final output of the model must strictly follow the JSON Schema format shown below:\n"
+                '{"properties":{"profile":{},"preferences":{},"entities":{},"delete_uris":{}}}'
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                "## Conversation History\n"
+                "**Session Time:** 2026-05-22 19:20 (Friday)\n"
+                "Relative times are based on Session Time, not today.\n\n"
+                f"{conversation}\n\n"
+                "After exploring, analyze the conversation and output ALL memory write/edit/delete operations."
+            ),
+        },
+    ]
+
+
 def memory(content: str, kind: str = "project") -> dict[str, object]:
     return {"content": content, "metadata": {"kind": kind, "confidence": 0.9, "source": "session"}}
+
+
+def tools_payload() -> dict[str, object]:
+    return {
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "read",
+                    "description": "Read single file",
+                    "parameters": {"type": "object", "properties": {"uri": {"type": "string"}}},
+                },
+            }
+        ],
+        "tool_choice": "auto",
+    }
 
 
 class MemoryAdapterTests(unittest.TestCase):
@@ -99,6 +140,22 @@ class MemoryAdapterTests(unittest.TestCase):
         assert request is not None
         self.assertIn("[user]: Please remember that I use Nix flakes.", request.messages[1]["content"])
         self.assertNotIn("Important Processing Rules", request.messages[1]["content"])
+
+    def test_detector_triggers_on_stock_openviking_v2_tool_prompt_shape(self) -> None:
+        request = maybe_adapt_openviking_memory_request(
+            openviking_v2_messages("[0][user]: Please remember that I use Nix flakes."),
+            tools_payload(),
+            model_id="mlx-community/gemma-4-e2b-it-4bit",
+            llm_backend="mlx-vlm",
+            enabled=True,
+        )
+
+        self.assertIsNotNone(request)
+        assert request is not None
+        self.assertEqual(request.output_format, "openviking_v2")
+        self.assertIn("[0][user]: Please remember that I use Nix flakes.", request.messages[1]["content"])
+        self.assertNotIn("Session Time", request.messages[1]["content"])
+        self.assertNotIn("After exploring", request.messages[1]["content"])
 
     def test_detector_ignores_ordinary_json_requests(self) -> None:
         request = maybe_adapt_openviking_memory_request(
@@ -211,6 +268,39 @@ class MemoryAdapterTests(unittest.TestCase):
             json.loads(content),
             {"memories": [memory("I prefer concise engineering answers.", "preference")]}
         )
+
+    def test_v2_operation_mapping_uses_openviking_schema_fields(self) -> None:
+        payload = {
+            "memories": [
+                memory("I am a macOS developer.", "profile"),
+                memory("I prefer concise engineering answers.", "preference"),
+                memory("My Miniviking checkout is /Users/leonardw/Projects/miniviking.", "project"),
+                memory("My default Python environment is /Users/leonardw/.venvs/default/.", "environment"),
+            ]
+        }
+
+        operations = memory_payload_to_openviking_v2_operations(payload)
+
+        self.assertEqual(operations["profile"], {"content": "- I am a macOS developer."})
+        self.assertEqual(
+            operations["preferences"],
+            [{"user": "default", "topic": "communication_style", "content": "I prefer concise engineering answers."}],
+        )
+        self.assertEqual(operations["entities"][0]["category"], "projects")
+        self.assertEqual(operations["entities"][0]["name"], "miniviking")
+        self.assertEqual(operations["entities"][1]["category"], "environment")
+        self.assertEqual(operations["delete_uris"], [])
+
+    def test_finalize_can_output_openviking_v2_operations(self) -> None:
+        raw = (
+            '{"memories":[{"content":"I prefer concise engineering answers.",'
+            '"metadata":{"kind":"preference","confidence":0.9,"source":"session"}}]}'
+        )
+        transcript = "User: Please remember that I prefer concise engineering answers."
+
+        content = finalize_memory_response(raw, transcript, "openviking_v2")
+
+        self.assertEqual(json.loads(content)["preferences"][0]["topic"], "communication_style")
 
 
 if __name__ == "__main__":

@@ -13,7 +13,7 @@ MEMORY_SCHEMA_SHAPE = (
 )
 
 TRANSCRIPT_TAG_RE = re.compile(r"<transcript>\s*(.*?)\s*</transcript>", re.IGNORECASE | re.DOTALL)
-ROLE_LINE_RE = re.compile(r"^\s*\[?(user|assistant|system|tool)\]?\s*:\s*(.*)$", re.IGNORECASE)
+ROLE_LINE_RE = re.compile(r"^\s*(?:\[\d+\])?\s*\[?(user|assistant|system|tool)\]?\s*:\s*(.*)$", re.IGNORECASE)
 
 STOPWORDS = {
     "about",
@@ -122,6 +122,7 @@ NEGATED_SUBJECT_INTROS = (
 class OpenVikingMemoryRequest:
     messages: list[dict[str, str]]
     transcript: str
+    output_format: str = "memory_payload"
 
 
 class MemoryAdapterError(RuntimeError):
@@ -143,10 +144,11 @@ def maybe_adapt_openviking_memory_request(
     if not enabled or not default_memory_adapter_enabled(model_id, llm_backend):
         return None
     combined_text = "\n".join(message.get("content", "") for message in messages)
-    if not _payload_wants_json(payload) and not _prompt_requests_json(combined_text):
+    is_v2_request = looks_like_openviking_v2_memory_request(combined_text, payload)
+    if not is_v2_request and not _payload_wants_json(payload) and not _prompt_requests_json(combined_text):
         return None
 
-    if not looks_like_openviking_memory_request(combined_text, payload):
+    if not is_v2_request and not looks_like_openviking_memory_request(combined_text, payload):
         return None
 
     transcript = extract_real_transcript(messages)
@@ -157,7 +159,11 @@ def maybe_adapt_openviking_memory_request(
     if messages and messages[0].get("role") == "system":
         adapted_messages.append(messages[0])
     adapted_messages.append({"role": "user", "content": compile_memory_prompt(transcript)})
-    return OpenVikingMemoryRequest(messages=adapted_messages, transcript=transcript)
+    return OpenVikingMemoryRequest(
+        messages=adapted_messages,
+        transcript=transcript,
+        output_format="openviking_v2" if is_v2_request else "memory_payload",
+    )
 
 
 def looks_like_openviking_memory_request(text: str, payload: dict[str, Any]) -> bool:
@@ -178,6 +184,22 @@ def looks_like_openviking_memory_request(text: str, payload: dict[str, Any]) -> 
         )
     )
     return has_memory_schema and asks_for_extraction and has_source_marker and has_openviking_marker
+
+
+def looks_like_openviking_v2_memory_request(text: str, payload: dict[str, Any]) -> bool:
+    lowered = text.lower()
+    return (
+        payload_uses_tools(payload)
+        and "memory extraction agent" in lowered
+        and "conversation history" in lowered
+        and "json schema" in lowered
+        and "delete_uris" in lowered
+    )
+
+
+def payload_uses_tools(payload: dict[str, Any]) -> bool:
+    tools = payload.get("tools")
+    return isinstance(tools, list) and len(tools) > 0
 
 
 def compile_memory_prompt(transcript: str) -> str:
@@ -212,12 +234,13 @@ def extract_real_transcript(messages: list[dict[str, str]]) -> str:
         "extract memories from this real transcript only:",
         "real transcript:",
         "transcript:",
+        "## conversation history",
         "## recent conversation",
     ):
         index = lowered.rfind(marker)
         if index >= 0:
             candidate = text[index + len(marker) :]
-            return _clean_transcript(_strip_trailing_prompt_instructions(candidate))
+            return _clean_transcript(_strip_conversation_metadata(_strip_trailing_prompt_instructions(candidate)))
 
     turns = _transcript_turns(text)
     if turns:
@@ -284,11 +307,52 @@ def filter_memory_payload(payload: dict[str, list[dict[str, Any]]], transcript: 
     return {"memories": filtered}
 
 
-def finalize_memory_response(content: str, transcript: str) -> str:
+def finalize_memory_response(content: str, transcript: str, output_format: str = "memory_payload") -> str:
     parsed = repair_memory_json(content)
     normalized = normalize_memory_payload(parsed)
     filtered = filter_memory_payload(normalized, transcript)
+    if output_format == "openviking_v2":
+        filtered = memory_payload_to_openviking_v2_operations(filtered)
     return json.dumps(filtered, separators=(",", ":"), ensure_ascii=False)
+
+
+def memory_payload_to_openviking_v2_operations(payload: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
+    operations: dict[str, Any] = {
+        "profile": None,
+        "preferences": [],
+        "entities": [],
+        "events": [],
+        "tools": [],
+        "skills": [],
+        "delete_uris": [],
+    }
+    profile_items: list[str] = []
+
+    for memory in payload["memories"]:
+        content = memory["content"]
+        kind = memory["metadata"]["kind"]
+        if kind == "profile":
+            profile_items.append(f"- {content}")
+        elif kind == "preference":
+            operations["preferences"].append(
+                {
+                    "user": "default",
+                    "topic": _topic_from_content(content),
+                    "content": content,
+                }
+            )
+        elif kind in {"project", "environment"}:
+            operations["entities"].append(
+                {
+                    "category": "projects" if kind == "project" else "environment",
+                    "name": _entity_name_from_content(content),
+                    "content": content,
+                }
+            )
+
+    if profile_items:
+        operations["profile"] = {"content": "\n".join(profile_items)}
+    return operations
 
 
 def _payload_wants_json(payload: dict[str, Any]) -> bool:
@@ -318,6 +382,7 @@ def _clean_transcript(transcript: str) -> str:
 
 def _strip_trailing_prompt_instructions(text: str) -> str:
     stops = (
+        "\nAfter exploring",
         "\nReturn only JSON",
         "\nReturn valid JSON",
         "\nOutput JSON",
@@ -333,6 +398,20 @@ def _strip_trailing_prompt_instructions(text: str) -> str:
             candidate = candidate[:index]
             break
     return candidate
+
+
+def _strip_conversation_metadata(text: str) -> str:
+    lines = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("**Session Time:**"):
+            continue
+        if stripped.startswith("Relative times "):
+            continue
+        lines.append(line)
+    return "\n".join(lines)
 
 
 def _strip_markdown_fence(content: str) -> str:
@@ -483,3 +562,41 @@ def _matches_negated_subject(content: str, subjects: list[set[str]]) -> bool:
 def _salient_tokens(text: str) -> set[str]:
     tokens = {token.strip("./") for token in re.findall(r"[a-z0-9][a-z0-9_+./-]{2,}", text.lower())}
     return {token for token in tokens if token and token not in STOPWORDS}
+
+
+def _ordered_salient_tokens(text: str) -> list[str]:
+    tokens: list[str] = []
+    seen: set[str] = set()
+    for token in re.findall(r"[a-z0-9][a-z0-9_+./-]{2,}", text.lower()):
+        cleaned = token.strip("./").replace("-", "_")
+        if not cleaned or cleaned in STOPWORDS or cleaned in seen:
+            continue
+        seen.add(cleaned)
+        tokens.append(cleaned)
+    return tokens
+
+
+def _topic_from_content(content: str) -> str:
+    lowered = content.lower()
+    if "concise" in lowered or "answer" in lowered or "communication" in lowered:
+        return "communication_style"
+    if "nix" in lowered or "flake" in lowered:
+        return "development_workflow"
+    if "homebrew" in lowered:
+        return "homebrew"
+    tokens = _ordered_salient_tokens(content)
+    return "_".join(tokens[:3]) if tokens else "preference"
+
+
+def _entity_name_from_content(content: str) -> str:
+    lowered = content.lower()
+    for preferred in ("miniviking", "openviking", "homebrew", "gemma", "mlx"):
+        if preferred in lowered:
+            return preferred
+    path_match = re.search(r"/[A-Za-z0-9_+./-]+", content)
+    if path_match:
+        path_parts = [part for part in path_match.group(0).split("/") if part]
+        if path_parts:
+            return re.sub(r"[^a-z0-9_]+", "_", path_parts[-1].lower()).strip("_") or "project"
+    tokens = _ordered_salient_tokens(content)
+    return "_".join(tokens[:3]) if tokens else "project"

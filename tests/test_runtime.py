@@ -36,6 +36,26 @@ class RuntimeSafetyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "max_tokens exceeds"):
             runtime.chat([{"role": "user", "content": "hello"}], {"max_tokens": SMALL.max_tokens + 1})
 
+    def test_chat_rejects_non_memory_tool_calls(self) -> None:
+        runtime = MlxRuntime(config_from_defaults(SMALL))
+        runtime._llm_model = object()
+
+        with self.assertRaisesRegex(ValueError, "tool calling is only supported"):
+            runtime.chat(
+                [{"role": "user", "content": "Use the tool to answer this."}],
+                {
+                    "tools": [
+                        {
+                            "type": "function",
+                            "function": {
+                                "name": "read",
+                                "parameters": {"type": "object", "properties": {"uri": {"type": "string"}}},
+                            },
+                        }
+                    ]
+                },
+            )
+
     def test_vlm_chat_uses_generation_result_text(self) -> None:
         config = config_from_defaults(replace(SMALL, llm_backend="mlx-vlm"))
         runtime = MlxRuntime(config)

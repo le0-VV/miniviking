@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from .config import ServerConfig
-from .memory_adapter import finalize_memory_response, maybe_adapt_openviking_memory_request
+from .memory_adapter import finalize_memory_response, maybe_adapt_openviking_memory_request, payload_uses_tools
 
 
 def estimate_tokens(text: str) -> int:
@@ -97,6 +97,8 @@ class MlxRuntime:
             llm_backend=self.config.models.llm_backend,
             enabled=self.config.generation.openviking_memory_adapter,
         )
+        if adapter_request is None and payload_uses_tools(payload):
+            raise ValueError("tool calling is only supported for OpenViking memory extraction")
         generation_messages = adapter_request.messages if adapter_request is not None else messages
 
         prompt_tokens = estimate_message_tokens(messages)
@@ -113,7 +115,7 @@ class MlxRuntime:
             content = self._chat_with_lm(generation_messages, max_tokens)
 
         if adapter_request is not None:
-            content = finalize_memory_response(content, adapter_request.transcript)
+            content = finalize_memory_response(content, adapter_request.transcript, adapter_request.output_format)
 
         return ChatResult(
             content=content.strip(),
