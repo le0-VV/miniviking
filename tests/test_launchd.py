@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from miniviking.launchd import LABEL, plist_payload
+from miniviking.launchd import LABEL, UTF8_ENVIRONMENT, plist_payload
 
 
 class LaunchdTests(unittest.TestCase):
@@ -24,7 +24,10 @@ class LaunchdTests(unittest.TestCase):
         self.assertEqual(payload["Label"], LABEL)
         self.assertIs(payload["RunAtLoad"], True)
         self.assertIs(payload["KeepAlive"], True)
-        self.assertEqual(payload["EnvironmentVariables"], {"MINIVIKING_CONFIG": str(config_path)})
+        self.assertEqual(
+            payload["EnvironmentVariables"],
+            {"MINIVIKING_CONFIG": str(config_path), **UTF8_ENVIRONMENT},
+        )
         self.assertEqual(payload["ProgramArguments"][0], str(server_binary))
         self.assertIn(str(config_path), payload["ProgramArguments"])
 

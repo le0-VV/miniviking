@@ -12,6 +12,12 @@ from .processes import server_program_arguments
 LABEL = "ai.openviking.miniviking"
 PLIST_PATH = Path.home() / "Library" / "LaunchAgents" / f"{LABEL}.plist"
 LOG_DIR = Path.home() / "Library" / "Logs"
+UTF8_ENVIRONMENT = {
+    "PYTHONUTF8": "1",
+    "PYTHONIOENCODING": "utf-8",
+    "LANG": "en_US.UTF-8",
+    "LC_CTYPE": "en_US.UTF-8",
+}
 
 
 def launchd_domain() -> str:
@@ -32,7 +38,7 @@ def plist_payload(config_path: Path = CONFIG_PATH) -> dict[str, object]:
         "StandardOutPath": str(LOG_DIR / "miniviking.log"),
         "StandardErrorPath": str(LOG_DIR / "miniviking.err.log"),
         "WorkingDirectory": str(config_path.parent),
-        "EnvironmentVariables": {"MINIVIKING_CONFIG": str(config_path)},
+        "EnvironmentVariables": {"MINIVIKING_CONFIG": str(config_path), **UTF8_ENVIRONMENT},
     }
 
 

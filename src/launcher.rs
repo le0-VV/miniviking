@@ -55,6 +55,8 @@ pub fn run_role(role: &'static str) -> i32 {
 }
 
 fn run(default_role: Option<&'static str>) -> i32 {
+    configure_utf8_environment();
+
     let args = runtime_args(default_role);
     let source_root = match python_source_root() {
         Ok(path) => path,
@@ -88,6 +90,20 @@ fn run(default_role: Option<&'static str>) -> i32 {
     }
 
     run_embedded_python()
+}
+
+fn configure_utf8_environment() {
+    env::set_var("PYTHONUTF8", "1");
+    env::set_var("PYTHONIOENCODING", "utf-8");
+    set_env_if_missing("LANG", "en_US.UTF-8");
+    set_env_if_missing("LC_CTYPE", "en_US.UTF-8");
+}
+
+fn set_env_if_missing(key: &str, value: &str) {
+    match env::var_os(key) {
+        Some(existing) if !existing.is_empty() => {}
+        _ => env::set_var(key, value),
+    }
 }
 
 fn runtime_args(default_role: Option<&'static str>) -> Vec<OsString> {

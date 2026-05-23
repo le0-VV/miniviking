@@ -27,7 +27,11 @@ class Miniviking < Formula
     keep_alive true
     log_path var/"log/miniviking.log"
     error_log_path var/"log/miniviking.err.log"
-    environment_variables MINIVIKING_CONFIG: etc/"miniviking/config.json"
+    environment_variables MINIVIKING_CONFIG: etc/"miniviking/config.json",
+                          PYTHONUTF8: "1",
+                          PYTHONIOENCODING: "utf-8",
+                          LANG: "en_US.UTF-8",
+                          LC_CTYPE: "en_US.UTF-8"
   end
 
   def caveats
