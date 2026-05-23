@@ -3,7 +3,7 @@
 ## V1 Internal RC
 
 - [x] Provide OpenAI-compatible localhost endpoints for model listing, chat completions, embeddings, and health.
-- [x] Package a single Rust launcher that supervises explicit server, LLM worker, and embedding worker processes.
+- [x] Package source-built native executables for the CLI, server, LLM worker, and embedding worker.
 - [x] Install as a per-user LaunchAgent or Homebrew service and eagerly download selected models during install.
 - [x] Use `mlx-community/embeddinggemma-300m-4bit` for every memory budget.
 - [x] Reject local LLM serving below 12 GB unified memory; those hosts are embedding-only/provider-LLM.

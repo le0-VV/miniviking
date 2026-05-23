@@ -15,6 +15,7 @@ from miniviking.processes import (
     WorkerServer,
     embedding_worker_port,
     llm_worker_port,
+    server_program_arguments,
     validate_llm_supported_for_host,
     worker_command,
 )
@@ -40,17 +41,51 @@ class ProcessTests(unittest.TestCase):
         self.assertEqual(llm_worker_port(config), 9001)
         self.assertEqual(embedding_worker_port(config), 9002)
 
-    def test_worker_command_uses_single_binary_with_role_argv0(self) -> None:
+    def test_worker_command_prefers_native_role_executable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            server_binary = Path(tmpdir) / "miniviking-server"
+            llm_binary = Path(tmpdir) / LLM_ROLE
+            server_binary.touch()
+            llm_binary.touch()
+            config_path = Path(tmpdir) / "config.json"
+
+            with (
+                patch.dict(os.environ, {}, clear=True),
+                patch("miniviking.processes.sys.executable", str(server_binary)),
+            ):
+                command = worker_command(LLM_ROLE, config_path=config_path, host="127.0.0.1", port=9001)
+
+        self.assertIsNone(command.executable)
+        self.assertEqual(command.args[:2], [str(llm_binary), "--config"])
+        self.assertIn(str(config_path), command.args)
+
+    def test_worker_command_falls_back_to_single_binary_with_role_argv0(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             binary = str(Path(tmpdir) / "miniviking")
             config_path = Path(tmpdir) / "config.json"
 
-            with patch.dict(os.environ, {"MINIVIKING_BINARY": binary}):
+            with patch.dict(os.environ, {"MINIVIKING_BINARY": binary}, clear=True):
                 command = worker_command(LLM_ROLE, config_path=config_path, host="127.0.0.1", port=9001)
 
         self.assertEqual(command.executable, binary)
         self.assertEqual(command.args[:2], [LLM_ROLE, LLM_ROLE])
         self.assertIn(str(config_path), command.args)
+
+    def test_server_program_arguments_prefers_native_server_executable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            miniviking_binary = Path(tmpdir) / "miniviking"
+            server_binary = Path(tmpdir) / "miniviking-server"
+            miniviking_binary.touch()
+            server_binary.touch()
+            config_path = Path(tmpdir) / "config.json"
+
+            with (
+                patch.dict(os.environ, {}, clear=True),
+                patch("miniviking.processes.sys.executable", str(miniviking_binary)),
+            ):
+                arguments = server_program_arguments(config_path)
+
+        self.assertEqual(arguments, [str(server_binary), "--config", str(config_path)])
 
     def test_worker_runtime_proxies_chat_and_embeddings(self) -> None:
         llm_server, llm_thread = self._start_worker(LLM_ROLE)

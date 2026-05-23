@@ -8,3 +8,15 @@ description = "Tiny local MLX runtime for OpenViking"
 [[bin]]
 name = "miniviking"
 path = "src/main.rs"
+
+[[bin]]
+name = "miniviking-server"
+path = "src/bin/miniviking-server.rs"
+
+[[bin]]
+name = "miniviking-llm"
+path = "src/bin/miniviking-llm.rs"
+
+[[bin]]
+name = "miniviking-embed"
+path = "src/bin/miniviking-embed.rs"

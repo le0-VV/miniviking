@@ -287,6 +287,13 @@ class WorkerProcess:
 
 
 def worker_command(role: str, *, config_path: Path, host: str, port: int) -> WorkerCommand:
+    role_executable = _role_executable(role)
+    if role_executable is not None:
+        return WorkerCommand(
+            args=[role_executable, "--config", str(config_path), "--host", host, "--port", str(port)],
+            executable=None,
+        )
+
     prefix, executable = _miniviking_command_prefix()
     command_args = [role, "--config", str(config_path), "--host", host, "--port", str(port)]
     if executable is not None and len(prefix) == 1:
@@ -295,8 +302,60 @@ def worker_command(role: str, *, config_path: Path, host: str, port: int) -> Wor
 
 
 def server_program_arguments(config_path: Path = CONFIG_PATH) -> list[str]:
+    role_executable = _role_executable(SERVER_ROLE)
+    if role_executable is not None:
+        return [role_executable, "--config", str(config_path)]
+
     prefix, _ = _miniviking_command_prefix()
     return [*prefix, SERVER_ROLE, "--config", str(config_path)]
+
+
+def _role_executable(role: str) -> str | None:
+    override = os.environ.get(_role_env_name(role))
+    if override:
+        return override
+
+    for anchor in _role_executable_anchors():
+        executable = _sibling_role_executable(anchor, role)
+        if executable is not None:
+            return executable
+
+    executable = shutil.which(role)
+    if executable:
+        return executable
+
+    return None
+
+
+def _role_env_name(role: str) -> str:
+    suffix = role.removeprefix("miniviking-").upper().replace("-", "_")
+    return f"MINIVIKING_{suffix}_BINARY"
+
+
+def _role_executable_anchors() -> list[Path]:
+    anchors: list[Path] = []
+    current = Path(sys.executable)
+    if current.name in {SERVER_ROLE, LLM_ROLE, EMBED_ROLE, "miniviking"}:
+        anchors.append(current)
+
+    override = os.environ.get("MINIVIKING_BINARY")
+    if override:
+        anchors.append(Path(override))
+
+    miniviking = shutil.which("miniviking")
+    if miniviking:
+        anchors.append(Path(miniviking))
+
+    return anchors
+
+
+def _sibling_role_executable(anchor: Path, role: str) -> str | None:
+    if anchor.name == role and anchor.is_file():
+        return str(anchor)
+    candidate = anchor.with_name(role)
+    if candidate.is_file():
+        return str(candidate)
+    return None
 
 
 def _miniviking_command_prefix() -> tuple[list[str], str | None]:
