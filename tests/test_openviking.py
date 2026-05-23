@@ -15,6 +15,7 @@ class OpenVikingConfigTests(unittest.TestCase):
         self.assertEqual(payload["embedding"]["dense"]["dimension"], 768)
         self.assertEqual(payload["vlm"]["provider"], "openai")
         self.assertEqual(payload["vlm"]["api_base"], "http://127.0.0.1:9999/v1")
+        self.assertEqual(payload["vlm"]["max_tokens"], config.generation.max_tokens)
 
 
 if __name__ == "__main__":

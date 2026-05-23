@@ -67,6 +67,38 @@ def openviking_v2_messages(conversation: str) -> list[dict[str, str]]:
     ]
 
 
+def openviking_v019_messages(conversation: str) -> list[dict[str, str]]:
+    return [
+        {
+            "role": "system",
+            "content": (
+                "Analyze conversations and update memories.\n"
+                "## Available Memory Types\n"
+                "### preferences\n"
+                "### entities\n"
+                "## Output Format\n"
+                "Return memory write/edit/delete operations matching this schema:\n"
+                '{"properties":{"preferences":{"items":{"properties":{"page_id":{"type":"integer"},'
+                '"user":{"type":"string"},"topic":{"type":"string"},"content":{"type":"string"}}}},'
+                '"entities":{"items":{"properties":{"page_id":{"type":"integer"},'
+                '"category":{"type":"string"},"name":{"type":"string"},"content":{"type":"string"}}}},'
+                '"delete_uris":{"items":{"type":"string"}}}}'
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                "## Conversation History\n"
+                "**Session Time:** 2026-05-23 08:47 (Saturday)\n"
+                "Relative times are based on Session Time, not today.\n\n"
+                f"{conversation}\n\n"
+                "After exploring, analyze the conversation and output ALL memory write/edit/delete operations "
+                "in a single response."
+            ),
+        },
+    ]
+
+
 def memory(content: str, kind: str = "project") -> dict[str, object]:
     return {"content": content, "metadata": {"kind": kind, "confidence": 0.9, "source": "session"}}
 
@@ -156,6 +188,21 @@ class MemoryAdapterTests(unittest.TestCase):
         self.assertIn("[0][user]: Please remember that I use Nix flakes.", request.messages[1]["content"])
         self.assertNotIn("Session Time", request.messages[1]["content"])
         self.assertNotIn("After exploring", request.messages[1]["content"])
+
+    def test_detector_triggers_on_openviking_019_v2_operation_prompt_shape(self) -> None:
+        request = maybe_adapt_openviking_memory_request(
+            openviking_v019_messages("[0][user][default]: Please remember that I use Nix flakes."),
+            tools_payload(),
+            model_id="mlx-community/gemma-4-e2b-it-4bit",
+            llm_backend="mlx-vlm",
+            enabled=True,
+        )
+
+        self.assertIsNotNone(request)
+        assert request is not None
+        self.assertEqual(request.output_format, "openviking_v2")
+        self.assertIn("[0][user][default]: Please remember that I use Nix flakes.", request.messages[1]["content"])
+        self.assertNotIn("Available Memory Types", request.messages[1]["content"])
 
     def test_detector_ignores_ordinary_json_requests(self) -> None:
         request = maybe_adapt_openviking_memory_request(
@@ -281,13 +328,22 @@ class MemoryAdapterTests(unittest.TestCase):
 
         operations = memory_payload_to_openviking_v2_operations(payload)
 
-        self.assertEqual(operations["profile"], {"content": "- I am a macOS developer."})
+        self.assertEqual(operations["profile"], [{"page_id": 103, "content": "- I am a macOS developer."}])
         self.assertEqual(
             operations["preferences"],
-            [{"user": "default", "topic": "communication_style", "content": "I prefer concise engineering answers."}],
+            [
+                {
+                    "page_id": 100,
+                    "user": "default",
+                    "topic": "communication_style",
+                    "content": "I prefer concise engineering answers.",
+                }
+            ],
         )
+        self.assertEqual(operations["entities"][0]["page_id"], 101)
         self.assertEqual(operations["entities"][0]["category"], "projects")
         self.assertEqual(operations["entities"][0]["name"], "miniviking")
+        self.assertEqual(operations["entities"][1]["page_id"], 102)
         self.assertEqual(operations["entities"][1]["category"], "environment")
         self.assertEqual(operations["delete_uris"], [])
 

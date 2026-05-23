@@ -29,6 +29,7 @@ def openviking_config(config: ServerConfig) -> dict[str, Any]:
             "api_base": config.base_url,
             "api_key": LOCAL_API_KEY,
             "model": config.models.llm_model,
+            "max_tokens": config.generation.max_tokens,
         }
     return payload
 

@@ -187,14 +187,44 @@ def looks_like_openviking_memory_request(text: str, payload: dict[str, Any]) -> 
 
 
 def looks_like_openviking_v2_memory_request(text: str, payload: dict[str, Any]) -> bool:
+    if not payload_uses_tools(payload):
+        return False
     lowered = text.lower()
-    return (
-        payload_uses_tools(payload)
-        and "memory extraction agent" in lowered
-        and "conversation history" in lowered
-        and "json schema" in lowered
-        and "delete_uris" in lowered
+    tool_text = json.dumps(payload.get("tools", []), sort_keys=True).lower()
+    haystack = f"{lowered}\n{tool_text}"
+    has_conversation = any(
+        marker in lowered
+        for marker in (
+            "conversation history",
+            "session time",
+            "relative times",
+            "[0][user]",
+            "[user]",
+        )
     )
+    has_memory_task = any(
+        marker in haystack
+        for marker in (
+            "memory extraction agent",
+            "update memories",
+            "memory write/edit/delete operations",
+            "available memory types",
+            "memory_type",
+            "memories/",
+        )
+    )
+    has_operations_schema = any(
+        marker in haystack
+        for marker in (
+            "delete_uris",
+            "page_id",
+            "profile",
+            "preferences",
+            "entities",
+            "events",
+        )
+    )
+    return has_conversation and has_memory_task and has_operations_schema
 
 
 def payload_uses_tools(payload: dict[str, Any]) -> bool:
@@ -318,7 +348,7 @@ def finalize_memory_response(content: str, transcript: str, output_format: str =
 
 def memory_payload_to_openviking_v2_operations(payload: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
     operations: dict[str, Any] = {
-        "profile": None,
+        "profile": [],
         "preferences": [],
         "entities": [],
         "events": [],
@@ -327,6 +357,7 @@ def memory_payload_to_openviking_v2_operations(payload: dict[str, list[dict[str,
         "delete_uris": [],
     }
     profile_items: list[str] = []
+    next_page_id = 100
 
     for memory in payload["memories"]:
         content = memory["content"]
@@ -336,22 +367,26 @@ def memory_payload_to_openviking_v2_operations(payload: dict[str, list[dict[str,
         elif kind == "preference":
             operations["preferences"].append(
                 {
+                    "page_id": next_page_id,
                     "user": "default",
                     "topic": _topic_from_content(content),
                     "content": content,
                 }
             )
+            next_page_id += 1
         elif kind in {"project", "environment"}:
             operations["entities"].append(
                 {
+                    "page_id": next_page_id,
                     "category": "projects" if kind == "project" else "environment",
                     "name": _entity_name_from_content(content),
                     "content": content,
                 }
             )
+            next_page_id += 1
 
     if profile_items:
-        operations["profile"] = {"content": "\n".join(profile_items)}
+        operations["profile"] = [{"page_id": next_page_id, "content": "\n".join(profile_items)}]
     return operations
 
 
