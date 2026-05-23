@@ -2,10 +2,19 @@ use std::env;
 use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::{Command, ExitStatus};
+use std::process::Command;
+
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
+#[cfg(not(unix))]
+use std::process::ExitStatus;
 
 const DEFAULT_PYTHON: Option<&str> = option_env!("MINIVIKING_DEFAULT_PYTHON");
 const DEFAULT_SOURCE: Option<&str> = option_env!("MINIVIKING_DEFAULT_SOURCE");
+const SERVER_ROLE: &str = "miniviking-server";
+const LLM_ROLE: &str = "miniviking-llm";
+const EMBED_ROLE: &str = "miniviking-embed";
+const ROLE_COMMANDS: [&str; 3] = [SERVER_ROLE, LLM_ROLE, EMBED_ROLE];
 
 fn main() {
     std::process::exit(run());
@@ -13,6 +22,7 @@ fn main() {
 
 fn run() -> i32 {
     let args: Vec<OsString> = env::args_os().skip(1).collect();
+    let role = process_role(&args);
     let source_root = match python_source_root() {
         Ok(path) => path,
         Err(error) => {
@@ -32,18 +42,17 @@ fn run() -> i32 {
     } else {
         python
     };
+    let runner = role_python_runner(runner, role);
 
     let mut command = Command::new(runner);
     command.arg("-m").arg("miniviking").args(&args);
+    set_miniviking_binary_env(&mut command);
     prepend_pythonpath(&mut command, &source_root.join("src"));
 
-    match command.status() {
-        Ok(status) => exit_code(status),
-        Err(error) => {
-            eprintln!("miniviking: failed to run Python runtime: {error}");
-            1
-        }
-    }
+    #[cfg(unix)]
+    command.arg0(process_title(&args));
+
+    run_python(&mut command)
 }
 
 fn command_requires_bootstrap(args: &[OsString]) -> bool {
@@ -66,6 +75,44 @@ fn command_requires_bootstrap(args: &[OsString]) -> bool {
             | "status"
             | "uninstall"
     )
+}
+
+fn process_role(args: &[OsString]) -> Option<&'static str> {
+    match args.first().and_then(|arg| arg.to_str()) {
+        Some("serve") => Some(SERVER_ROLE),
+        Some(command) if command == SERVER_ROLE => Some(SERVER_ROLE),
+        Some(command) if command == LLM_ROLE => Some(LLM_ROLE),
+        Some(command) if command == EMBED_ROLE => Some(EMBED_ROLE),
+        _ => None,
+    }
+}
+
+fn process_title(args: &[OsString]) -> OsString {
+    OsString::from(process_role(args).unwrap_or("miniviking"))
+}
+
+fn role_python_runner(runner: OsString, role: Option<&'static str>) -> OsString {
+    let Some(role) = role else {
+        return runner;
+    };
+    let Some(parent) = Path::new(runner.as_os_str()).parent() else {
+        return runner;
+    };
+    let named_runner = parent.join(role);
+    if named_runner.is_file() {
+        named_runner.into_os_string()
+    } else {
+        runner
+    }
+}
+
+fn set_miniviking_binary_env(command: &mut Command) {
+    if env::var_os("MINIVIKING_BINARY").is_some() {
+        return;
+    }
+    if let Ok(executable) = env::current_exe() {
+        command.env("MINIVIKING_BINARY", executable);
+    }
 }
 
 fn python_command() -> OsString {
@@ -141,6 +188,7 @@ fn ensure_runtime(python: &OsStr, source_root: &Path) -> Result<PathBuf, String>
 
     if venv_python.is_file() && marker_contents(&marker).as_deref() == Some(source_marker.as_str())
     {
+        ensure_role_python_links(&venv_python)?;
         return Ok(venv_python);
     }
 
@@ -183,7 +231,75 @@ fn ensure_runtime(python: &OsStr, source_root: &Path) -> Result<PathBuf, String>
         )
     })?;
 
+    ensure_role_python_links(&venv_python)?;
     Ok(venv_python)
+}
+
+#[cfg(unix)]
+fn ensure_role_python_links(venv_python: &Path) -> Result<(), String> {
+    let Some(bin_dir) = venv_python.parent() else {
+        return Err(format!(
+            "runtime Python path has no parent directory: {}",
+            venv_python.to_string_lossy()
+        ));
+    };
+    let Some(target_name) = venv_python.file_name() else {
+        return Err(format!(
+            "runtime Python path has no file name: {}",
+            venv_python.to_string_lossy()
+        ));
+    };
+    let target = Path::new(target_name);
+
+    for role in ROLE_COMMANDS {
+        let link = bin_dir.join(role);
+        match fs::symlink_metadata(&link) {
+            Ok(metadata) if metadata.file_type().is_symlink() => {
+                let current = fs::read_link(&link).map_err(|error| {
+                    format!(
+                        "failed to read runtime process-name helper {}: {error}",
+                        link.to_string_lossy()
+                    )
+                })?;
+                if current == target || current == venv_python {
+                    continue;
+                }
+                fs::remove_file(&link).map_err(|error| {
+                    format!(
+                        "failed to replace runtime process-name helper {}: {error}",
+                        link.to_string_lossy()
+                    )
+                })?;
+            }
+            Ok(_) => {
+                return Err(format!(
+                    "runtime process-name helper already exists and is not a symlink: {}",
+                    link.to_string_lossy()
+                ));
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => {
+                return Err(format!(
+                    "failed to inspect runtime process-name helper {}: {error}",
+                    link.to_string_lossy()
+                ));
+            }
+        }
+
+        std::os::unix::fs::symlink(target, &link).map_err(|error| {
+            format!(
+                "failed to create runtime process-name helper {}: {error}",
+                link.to_string_lossy()
+            )
+        })?;
+    }
+
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn ensure_role_python_links(_venv_python: &Path) -> Result<(), String> {
+    Ok(())
 }
 
 fn runtime_dir() -> Result<PathBuf, String> {
@@ -212,6 +328,24 @@ fn run_checked(command: &mut Command) -> Result<(), String> {
     }
 }
 
+#[cfg(unix)]
+fn run_python(command: &mut Command) -> i32 {
+    let error = command.exec();
+    eprintln!("miniviking: failed to run Python runtime: {error}");
+    1
+}
+
+#[cfg(not(unix))]
+fn run_python(command: &mut Command) -> i32 {
+    match command.status() {
+        Ok(status) => exit_code(status),
+        Err(error) => {
+            eprintln!("miniviking: failed to run Python runtime: {error}");
+            1
+        }
+    }
+}
+
 fn prepend_pythonpath(command: &mut Command, path: &Path) {
     let mut paths = vec![path.to_path_buf()];
     if let Some(existing) = env::var_os("PYTHONPATH") {
@@ -222,14 +356,22 @@ fn prepend_pythonpath(command: &mut Command, path: &Path) {
     }
 }
 
+#[cfg(not(unix))]
 fn exit_code(status: ExitStatus) -> i32 {
     status.code().unwrap_or(1)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::command_requires_bootstrap;
     use std::ffi::OsString;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use super::{
+        command_requires_bootstrap, ensure_role_python_links, process_title, role_python_runner,
+        EMBED_ROLE, LLM_ROLE, ROLE_COMMANDS, SERVER_ROLE,
+    };
 
     fn args(values: &[&str]) -> Vec<OsString> {
         values.iter().map(OsString::from).collect()
@@ -259,14 +401,84 @@ mod tests {
 
     #[test]
     fn model_runtime_commands_require_bootstrap() {
-        for command in [
-            "install",
-            "serve",
-            "miniviking-server",
-            "miniviking-llm",
-            "miniviking-embed",
-        ] {
+        for command in ["install", "serve", SERVER_ROLE, LLM_ROLE, EMBED_ROLE] {
             assert!(command_requires_bootstrap(&args(&[command])));
         }
+    }
+
+    #[test]
+    fn role_commands_use_role_process_titles() {
+        assert_eq!(
+            process_title(&args(&["serve"])),
+            OsString::from(SERVER_ROLE)
+        );
+        assert_eq!(
+            process_title(&args(&[SERVER_ROLE])),
+            OsString::from(SERVER_ROLE)
+        );
+        assert_eq!(process_title(&args(&[LLM_ROLE])), OsString::from(LLM_ROLE));
+        assert_eq!(
+            process_title(&args(&[EMBED_ROLE])),
+            OsString::from(EMBED_ROLE)
+        );
+    }
+
+    #[test]
+    fn non_role_commands_use_default_process_title() {
+        assert_eq!(process_title(&args(&[])), OsString::from("miniviking"));
+        assert_eq!(
+            process_title(&args(&["install"])),
+            OsString::from("miniviking")
+        );
+        assert_eq!(
+            process_title(&args(&["config"])),
+            OsString::from("miniviking")
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn runtime_role_python_links_are_created() {
+        let root = unique_temp_dir("miniviking-role-links");
+        let bin = root.join("bin");
+        fs::create_dir_all(&bin).unwrap();
+        let python = bin.join("python");
+        fs::write(&python, "").unwrap();
+
+        ensure_role_python_links(&python).unwrap();
+
+        for role in ROLE_COMMANDS {
+            assert_eq!(
+                fs::read_link(bin.join(role)).unwrap(),
+                PathBuf::from("python")
+            );
+        }
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn role_python_runner_uses_named_runtime_link_when_present() {
+        let root = unique_temp_dir("miniviking-role-runner");
+        let bin = root.join("bin");
+        fs::create_dir_all(&bin).unwrap();
+        let python = bin.join("python");
+        fs::write(&python, "").unwrap();
+        ensure_role_python_links(&python).unwrap();
+
+        let runner = role_python_runner(python.into_os_string(), Some(LLM_ROLE));
+
+        assert_eq!(PathBuf::from(runner), bin.join(LLM_ROLE));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    fn unique_temp_dir(prefix: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("{prefix}-{}-{nanos}", std::process::id()))
     }
 }
