@@ -145,6 +145,7 @@ def maybe_adapt_openviking_memory_request(
         return None
     combined_text = "\n".join(message.get("content", "") for message in messages)
     is_v2_request = looks_like_openviking_v2_memory_request(combined_text, payload)
+    output_format = _openviking_v2_output_format(combined_text, payload) if is_v2_request else "memory_payload"
     if not is_v2_request and not _payload_wants_json(payload) and not _prompt_requests_json(combined_text):
         return None
 
@@ -162,7 +163,7 @@ def maybe_adapt_openviking_memory_request(
     return OpenVikingMemoryRequest(
         messages=adapted_messages,
         transcript=transcript,
-        output_format="openviking_v2" if is_v2_request else "memory_payload",
+        output_format=output_format,
     )
 
 
@@ -230,6 +231,11 @@ def looks_like_openviking_v2_memory_request(text: str, payload: dict[str, Any]) 
 def payload_uses_tools(payload: dict[str, Any]) -> bool:
     tools = payload.get("tools")
     return isinstance(tools, list) and len(tools) > 0
+
+
+def _openviking_v2_output_format(text: str, payload: dict[str, Any]) -> str:
+    schema_text = f"{text}\n{json.dumps(payload.get('tools', []), sort_keys=True)}".lower()
+    return "openviking_v2_page_id" if '"page_id"' in schema_text or "page_id" in schema_text else "openviking_v2"
 
 
 def compile_memory_prompt(transcript: str) -> str:
@@ -341,14 +347,21 @@ def finalize_memory_response(content: str, transcript: str, output_format: str =
     parsed = repair_memory_json(content)
     normalized = normalize_memory_payload(parsed)
     filtered = filter_memory_payload(normalized, transcript)
-    if output_format == "openviking_v2":
-        filtered = memory_payload_to_openviking_v2_operations(filtered)
+    if output_format in {"openviking_v2", "openviking_v2_page_id"}:
+        filtered = memory_payload_to_openviking_v2_operations(
+            filtered,
+            include_page_id=output_format == "openviking_v2_page_id",
+        )
     return json.dumps(filtered, separators=(",", ":"), ensure_ascii=False)
 
 
-def memory_payload_to_openviking_v2_operations(payload: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
+def memory_payload_to_openviking_v2_operations(
+    payload: dict[str, list[dict[str, Any]]],
+    *,
+    include_page_id: bool = False,
+) -> dict[str, Any]:
     operations: dict[str, Any] = {
-        "profile": [],
+        "profile": [] if include_page_id else None,
         "preferences": [],
         "entities": [],
         "events": [],
@@ -365,28 +378,33 @@ def memory_payload_to_openviking_v2_operations(payload: dict[str, list[dict[str,
         if kind == "profile":
             profile_items.append(f"- {content}")
         elif kind == "preference":
-            operations["preferences"].append(
-                {
-                    "page_id": next_page_id,
-                    "user": "default",
-                    "topic": _topic_from_content(content),
-                    "content": content,
-                }
-            )
-            next_page_id += 1
+            operation: dict[str, Any] = {
+                "user": "default",
+                "topic": _topic_from_content(content),
+                "content": content,
+            }
+            if include_page_id:
+                operation["page_id"] = next_page_id
+                next_page_id += 1
+            operations["preferences"].append(operation)
         elif kind in {"project", "environment"}:
-            operations["entities"].append(
-                {
-                    "page_id": next_page_id,
-                    "category": "projects" if kind == "project" else "environment",
-                    "name": _entity_name_from_content(content),
-                    "content": content,
-                }
-            )
-            next_page_id += 1
+            operation: dict[str, Any] = {
+                "category": "projects" if kind == "project" else "environment",
+                "name": _entity_name_from_content(content),
+                "content": content,
+            }
+            if include_page_id:
+                operation["page_id"] = next_page_id
+                next_page_id += 1
+            operations["entities"].append(operation)
 
     if profile_items:
-        operations["profile"] = [{"page_id": next_page_id, "content": "\n".join(profile_items)}]
+        profile: dict[str, Any] = {"content": "\n".join(profile_items)}
+        if include_page_id:
+            profile["page_id"] = next_page_id
+            operations["profile"] = [profile]
+        else:
+            operations["profile"] = profile
     return operations
 
 

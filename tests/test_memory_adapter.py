@@ -200,7 +200,7 @@ class MemoryAdapterTests(unittest.TestCase):
 
         self.assertIsNotNone(request)
         assert request is not None
-        self.assertEqual(request.output_format, "openviking_v2")
+        self.assertEqual(request.output_format, "openviking_v2_page_id")
         self.assertIn("[0][user][default]: Please remember that I use Nix flakes.", request.messages[1]["content"])
         self.assertNotIn("Available Memory Types", request.messages[1]["content"])
 
@@ -328,24 +328,70 @@ class MemoryAdapterTests(unittest.TestCase):
 
         operations = memory_payload_to_openviking_v2_operations(payload)
 
-        self.assertEqual(operations["profile"], [{"page_id": 103, "content": "- I am a macOS developer."}])
+        self.assertEqual(operations["profile"], {"content": "- I am a macOS developer."})
         self.assertEqual(
             operations["preferences"],
             [
                 {
-                    "page_id": 100,
                     "user": "default",
                     "topic": "communication_style",
                     "content": "I prefer concise engineering answers.",
                 }
             ],
         )
-        self.assertEqual(operations["entities"][0]["page_id"], 101)
         self.assertEqual(operations["entities"][0]["category"], "projects")
         self.assertEqual(operations["entities"][0]["name"], "miniviking")
-        self.assertEqual(operations["entities"][1]["page_id"], 102)
         self.assertEqual(operations["entities"][1]["category"], "environment")
         self.assertEqual(operations["delete_uris"], [])
+
+    def test_v2_operation_mapping_uses_page_id_shape_only_when_requested(self) -> None:
+        payload = {
+            "memories": [
+                memory("I am a macOS developer.", "profile"),
+                memory("I prefer concise engineering answers.", "preference"),
+                memory("My Miniviking checkout is /Users/leonardw/Projects/miniviking.", "project"),
+            ]
+        }
+
+        operations = memory_payload_to_openviking_v2_operations(payload, include_page_id=True)
+
+        self.assertEqual(operations["profile"], [{"page_id": 102, "content": "- I am a macOS developer."}])
+        self.assertEqual(operations["preferences"][0]["page_id"], 100)
+        self.assertEqual(operations["entities"][0]["page_id"], 101)
+
+    def test_v2_operation_mapping_matches_openviking_014_schema_fixture(self) -> None:
+        payload = {
+            "memories": [
+                memory("my preferred Miniviking test editor is Helix", "preference"),
+                memory("Miniviking uses port 8745. OpenViking uses port 19331.", "environment"),
+            ]
+        }
+
+        operations = memory_payload_to_openviking_v2_operations(payload)
+
+        self.assertIsNone(operations["profile"])
+        self.assertEqual(
+            operations["preferences"],
+            [
+                {
+                    "user": "default",
+                    "topic": "preferred_miniviking_test",
+                    "content": "my preferred Miniviking test editor is Helix",
+                }
+            ],
+        )
+        self.assertEqual(
+            operations["entities"],
+            [
+                {
+                    "category": "environment",
+                    "name": "miniviking",
+                    "content": "Miniviking uses port 8745. OpenViking uses port 19331.",
+                }
+            ],
+        )
+        self.assertNotIn("page_id", operations["preferences"][0])
+        self.assertNotIn("page_id", operations["entities"][0])
 
     def test_finalize_can_output_openviking_v2_operations(self) -> None:
         raw = (
@@ -357,6 +403,18 @@ class MemoryAdapterTests(unittest.TestCase):
         content = finalize_memory_response(raw, transcript, "openviking_v2")
 
         self.assertEqual(json.loads(content)["preferences"][0]["topic"], "communication_style")
+        self.assertNotIn("page_id", json.loads(content)["preferences"][0])
+
+    def test_finalize_can_output_openviking_v2_page_id_operations(self) -> None:
+        raw = (
+            '{"memories":[{"content":"I prefer concise engineering answers.",'
+            '"metadata":{"kind":"preference","confidence":0.9,"source":"session"}}]}'
+        )
+        transcript = "User: Please remember that I prefer concise engineering answers."
+
+        content = finalize_memory_response(raw, transcript, "openviking_v2_page_id")
+
+        self.assertEqual(json.loads(content)["preferences"][0]["page_id"], 100)
 
 
 if __name__ == "__main__":
