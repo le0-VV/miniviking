@@ -20,17 +20,10 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     install = subparsers.add_parser("install", help="write config, download models, and install LaunchAgent")
-    install.add_argument("--config", type=Path, default=CONFIG_PATH)
-    install.add_argument(
-        "--mode",
-        choices=["llm", "embedding", "both"],
-        help="runtime mode; hosts below 12 GB support embedding only, otherwise defaults to both",
-    )
-    install.add_argument("--host", default=DEFAULT_HOST)
-    install.add_argument("--port", type=int, default=DEFAULT_PORT)
-    install.add_argument("--memory-gib", type=int, help="override detected unified memory for custom installs")
-    install.add_argument("--skip-launch-agent", action="store_true", help="do not write the macOS LaunchAgent plist")
-    install.add_argument("--print-openviking-config", action="store_true", help="print OpenViking config after install")
+    _add_setup_arguments(install)
+
+    setup = subparsers.add_parser("setup", help="write config and download models")
+    _add_setup_arguments(setup)
 
     uninstall = subparsers.add_parser("uninstall", help="unload LaunchAgent and remove its plist")
     uninstall.add_argument("--plist", type=Path, default=PLIST_PATH)
@@ -73,7 +66,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
     try:
-        if args.command == "install":
+        if args.command in {"install", "setup"}:
             _install(args)
         elif args.command == "uninstall":
             _uninstall(args.plist)
@@ -108,7 +101,43 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit(1) from exc
 
 
+def _add_setup_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--config", type=Path, default=CONFIG_PATH)
+    parser.add_argument(
+        "--mode",
+        choices=["llm", "embedding", "both"],
+        help="runtime mode; hosts below 12 GB support embedding only, otherwise defaults to both",
+    )
+    parser.add_argument("--host", default=DEFAULT_HOST)
+    parser.add_argument("--port", type=int, default=DEFAULT_PORT)
+    parser.add_argument("--memory-gib", type=int, help="override detected unified memory for custom installs")
+    parser.add_argument("--skip-launch-agent", action="store_true", help="do not write the macOS LaunchAgent plist")
+    parser.add_argument("--print-openviking-config", action="store_true", help="print OpenViking config after setup")
+    parser.add_argument(
+        "--preserve-existing-config",
+        action="store_true",
+        help="download models for an existing config instead of overwriting it",
+    )
+
+
 def _install(args: argparse.Namespace) -> None:
+    if args.preserve_existing_config and args.config.exists():
+        config = load_config(args.config)
+        download_models(config)
+        if not args.skip_launch_agent:
+            write_plist(args.config)
+
+        print(f"Using existing config: {args.config}")
+        print(f"Runtime mode: {config.mode}")
+        if args.skip_launch_agent:
+            print("Skipped LaunchAgent install")
+        else:
+            print(f"Wrote LaunchAgent: {PLIST_PATH}")
+        print(f"OpenAI-compatible base URL: {config.base_url}")
+        if args.print_openviking_config:
+            print(openviking_config_json(config))
+        return
+
     memory_gib = args.memory_gib if args.memory_gib else detect_unified_memory_gib()
     defaults = defaults_for_memory(memory_gib)
     mode = resolve_install_mode(memory_gib, args.mode)

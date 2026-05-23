@@ -24,11 +24,7 @@ brew tap le0-VV/miniviking https://github.com/le0-VV/miniviking
 brew install le0-VV/miniviking/miniviking
 ```
 
-创建 Homebrew service 使用的配置，并下载选中的模型：
-
-```sh
-miniviking install --config "$(brew --prefix)/etc/miniviking/config.json" --skip-launch-agent
-```
+`brew install` 会构建 Miniviking、写入 Homebrew service 使用的配置，并下载选中的模型。
 
 启动 Homebrew service：
 
@@ -40,6 +36,12 @@ brew services start miniviking
 
 ```sh
 miniviking test --config "$(brew --prefix)/etc/miniviking/config.json"
+```
+
+重新运行 Homebrew setup，但不覆盖已有配置：
+
+```sh
+miniviking setup --config "$(brew --prefix)/etc/miniviking/config.json" --skip-launch-agent --preserve-existing-config
 ```
 
 作为当前用户的 LaunchAgent 安装：
@@ -67,9 +69,9 @@ miniviking test
 miniviking openviking-config
 ```
 
-安装时会检测主机内存，并把配置写入 `~/.miniviking/config.json`。在低于 12 GB 统一内存的机器上，`miniviking install` 默认使用 `mode=embedding`，只下载 embedding 模型，并拒绝本地 LLM 模式。这些机器需要在 OpenViking 中单独配置 LLM provider，例如使用 API provider。
+Setup 会检测主机内存，并在直接安装时把配置写入 `~/.miniviking/config.json`，在 Homebrew 安装时写入 Homebrew 的 `etc/miniviking/config.json`。在低于 12 GB 统一内存的机器上，setup 默认使用 `mode=embedding`，只下载 embedding 模型，并拒绝本地 LLM 模式。这些机器需要在 OpenViking 中单独配置 LLM provider，例如使用 API provider。
 
-端口、运行模式和模型都可以在配置文件里修改，也可以在安装时通过 CLI 参数自定义。
+端口、运行模式和模型都可以在配置文件里修改，也可以在 setup 时通过 CLI 参数自定义。
 
 内存档位默认值：
 

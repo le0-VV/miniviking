@@ -24,11 +24,7 @@ brew tap le0-VV/miniviking https://github.com/le0-VV/miniviking
 brew install le0-VV/miniviking/miniviking
 ```
 
-Create the Homebrew service config and download the selected models:
-
-```sh
-miniviking install --config "$(brew --prefix)/etc/miniviking/config.json" --skip-launch-agent
-```
+`brew install` builds Miniviking, writes the Homebrew service config, and downloads the selected models.
 
 Start the Homebrew service:
 
@@ -40,6 +36,12 @@ Verify the running server:
 
 ```sh
 miniviking test --config "$(brew --prefix)/etc/miniviking/config.json"
+```
+
+Rerun Homebrew setup without overwriting an existing config:
+
+```sh
+miniviking setup --config "$(brew --prefix)/etc/miniviking/config.json" --skip-launch-agent --preserve-existing-config
 ```
 
 Install as a per-user LaunchAgent:
@@ -67,9 +69,9 @@ Print the OpenViking config snippet for the current miniviking config:
 miniviking openviking-config
 ```
 
-The installer detects host memory and writes a config under `~/.miniviking/config.json`. On machines below 12 GB unified memory, `miniviking install` defaults to `mode=embedding`, downloads only the embedding model, and rejects local LLM modes. Configure OpenViking's LLM provider separately on those machines, for example with an API provider.
+Setup detects host memory and writes a config under `~/.miniviking/config.json` for direct installs, or under Homebrew's `etc/miniviking/config.json` for Homebrew installs. On machines below 12 GB unified memory, setup defaults to `mode=embedding`, downloads only the embedding model, and rejects local LLM modes. Configure OpenViking's LLM provider separately on those machines, for example with an API provider.
 
-The port, runtime mode, and models can be customized in the config file or with CLI flags during install.
+The port, runtime mode, and models can be customized in the config file or with CLI flags during setup.
 
 Memory-tier defaults:
 

@@ -118,6 +118,62 @@ class CliTests(unittest.TestCase):
             download_models.assert_called_once()
             write_plist.assert_not_called()
 
+    def test_setup_preserves_existing_config(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.json"
+            with (
+                patch("miniviking.cli.download_models"),
+                patch("miniviking.cli.write_plist"),
+                redirect_stdout(io.StringIO()),
+                redirect_stderr(io.StringIO()),
+            ):
+                main(
+                    [
+                        "install",
+                        "--memory-gib",
+                        "12",
+                        "--mode",
+                        "embedding",
+                        "--port",
+                        "9000",
+                        "--config",
+                        str(config_path),
+                        "--skip-launch-agent",
+                    ]
+                )
+
+            stdout = io.StringIO()
+            with (
+                patch("miniviking.cli.download_models") as download_models,
+                patch("miniviking.cli.write_plist") as write_plist,
+                redirect_stdout(stdout),
+                redirect_stderr(io.StringIO()),
+            ):
+                main(
+                    [
+                        "setup",
+                        "--memory-gib",
+                        "16",
+                        "--mode",
+                        "both",
+                        "--port",
+                        "9999",
+                        "--config",
+                        str(config_path),
+                        "--skip-launch-agent",
+                        "--preserve-existing-config",
+                    ]
+                )
+
+            config = load_config(config_path)
+            downloaded_config = download_models.call_args.args[0]
+            self.assertEqual(config.mode, "embedding")
+            self.assertEqual(config.port, 9000)
+            self.assertEqual(downloaded_config.mode, "embedding")
+            self.assertEqual(downloaded_config.port, 9000)
+            self.assertIn("Using existing config", stdout.getvalue())
+            write_plist.assert_not_called()
+
     def test_serve_alias_runs_process_supervisor(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.json"

@@ -22,6 +22,13 @@ class Miniviking < Formula
     python_source.install "pyproject.toml", "README.md", "src"
   end
 
+  def post_install
+    system bin/"miniviking", "setup",
+           "--config", etc/"miniviking/config.json",
+           "--skip-launch-agent",
+           "--preserve-existing-config"
+  end
+
   service do
     run [opt_bin/"miniviking-server", "--config", etc/"miniviking/config.json"]
     keep_alive true
@@ -36,8 +43,9 @@ class Miniviking < Formula
 
   def caveats
     <<~EOS
-      Create the Miniviking config and eagerly download selected models:
-        miniviking install --config #{etc}/miniviking/config.json --skip-launch-agent
+      Homebrew runs Miniviking setup during brew install. To rerun setup or
+      redownload missing models:
+        miniviking setup --config #{etc}/miniviking/config.json --skip-launch-agent --preserve-existing-config
 
       On machines below 12 GB unified memory, install defaults to embedding-only
       mode and rejects local LLM modes. Configure OpenViking's LLM provider
