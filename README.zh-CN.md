@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-`miniviking` 是一个为 OpenViking 准备的轻量本地 MLX 服务器。它在 localhost 上暴露 OpenAI 兼容接口，让原版 OpenViking 安装几乎不需要额外配置，就能使用已启用的本地聊天大模型和 embedding 模型。
+`miniviking` 是一个为 OpenViking 准备的轻量本地 MLX 服务器。它在 localhost 上开放 OpenAI 兼容接口，让原版 OpenViking 几乎不需要额外配置，就能使用本地聊天大模型和 embedding 模型。
 
 默认接口：
 
@@ -23,11 +23,6 @@ http://127.0.0.1:8745/v1
 brew tap le0-VV/miniviking https://github.com/le0-VV/miniviking
 brew install le0-VV/miniviking/miniviking
 ```
-
-Homebrew formula 会从源码构建 Rust launcher。它不会安装预构建二进制，
-也不会在 Homebrew 构建阶段创建 Python virtualenv；当第一次运行
-`miniviking install` 或 server 时，launcher 会在 `~/.miniviking/runtime`
-下准备 Python/MLX 运行环境。
 
 创建 Homebrew service 使用的配置，并下载选中的模型：
 
@@ -78,11 +73,11 @@ miniviking openviking-config
 
 内存档位默认值：
 
-| 统一内存       | 默认模式     | 嵌入模型                                 | 本地 LLM 默认值                             | 后端      |
-| -------------- | ------------ | ---------------------------------------- | ------------------------------------------- | --------- |
-| 低于 12 GB     | `embedding`  | `mlx-community/embeddinggemma-300m-4bit` | 不支持；需要单独配置 OpenViking LLM provider | N/A       |
-| 12 GB 到 16 GB | `both`       | `mlx-community/embeddinggemma-300m-4bit` | `mlx-community/gemma-4-e2b-it-4bit`         | `mlx-vlm` |
-| 高于 16 GB     | `both`       | `mlx-community/embeddinggemma-300m-4bit` | `mlx-community/gemma-4-e4b-it-4bit`         | `mlx-vlm` |
+| 统一内存       | 默认模式    | 嵌入模型                                 | 本地 LLM 默认值                              | 后端      |
+| -------------- | ----------- | ---------------------------------------- | -------------------------------------------- | --------- |
+| 低于 12 GB     | `embedding` | `mlx-community/embeddinggemma-300m-4bit` | 不支持；需要单独配置 OpenViking LLM provider | N/A       |
+| 12 GB 到 16 GB | `both`      | `mlx-community/embeddinggemma-300m-4bit` | `mlx-community/gemma-4-e2b-it-4bit`          | `mlx-vlm` |
+| 高于 16 GB     | `both`      | `mlx-community/embeddinggemma-300m-4bit` | `mlx-community/gemma-4-e4b-it-4bit`          | `mlx-vlm` |
 
 初始上下文和吞吐限制刻意低于各模型的最大上下文窗口：
 
@@ -104,10 +99,6 @@ api_key = "unused"
 在 12 GB 或更高内存的机器上，Miniviking 会检测原版 OpenViking v2 记忆抽取请求，通过 Gemma memory adapter 压缩提示词，并返回 OpenViking 兼容的记忆操作。
 
 内部 RC 验证：
-
-```sh
-bash scripts/rc_verify.sh
-```
 
 ## 👉👈
 

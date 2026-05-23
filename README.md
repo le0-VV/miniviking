@@ -24,11 +24,6 @@ brew tap le0-VV/miniviking https://github.com/le0-VV/miniviking
 brew install le0-VV/miniviking/miniviking
 ```
 
-The Homebrew formula builds the Rust launcher from source. It does not install
-a prebuilt binary and does not create a Python virtualenv during the Homebrew
-build; the launcher prepares the Python/MLX runtime under `~/.miniviking/runtime`
-when `miniviking install` or the server is first run.
-
 Create the Homebrew service config and download the selected models:
 
 ```sh
@@ -78,11 +73,11 @@ The port, runtime mode, and models can be customized in the config file or with 
 
 Memory-tier defaults:
 
-| Unified memory | Default mode | Embedding model                          | Local LLM default                                  | Backend   |
-| -------------- | ------------ | ---------------------------------------- | -------------------------------------------------- | --------- |
+| Unified memory  | Default mode | Embedding model                          | Local LLM default                                   | Backend   |
+| --------------- | ------------ | ---------------------------------------- | --------------------------------------------------- | --------- |
 | Less than 12 GB | `embedding`  | `mlx-community/embeddinggemma-300m-4bit` | Unsupported; use a separate OpenViking LLM provider | N/A       |
-| 12 GB to 16 GB | `both`       | `mlx-community/embeddinggemma-300m-4bit` | `mlx-community/gemma-4-e2b-it-4bit`                | `mlx-vlm` |
-| More than 16 GB | `both`      | `mlx-community/embeddinggemma-300m-4bit` | `mlx-community/gemma-4-e4b-it-4bit`                | `mlx-vlm` |
+| 12 GB to 16 GB  | `both`       | `mlx-community/embeddinggemma-300m-4bit` | `mlx-community/gemma-4-e2b-it-4bit`                 | `mlx-vlm` |
+| More than 16 GB | `both`       | `mlx-community/embeddinggemma-300m-4bit` | `mlx-community/gemma-4-e4b-it-4bit`                 | `mlx-vlm` |
 
 Initial context and throughput limits are intentionally below each model's maximum context window:
 
@@ -104,10 +99,6 @@ For the default below-12 GB embedding-only install, `miniviking openviking-confi
 On 12 GB or larger hosts, Miniviking detects stock OpenViking v2 memory-extraction requests and compacts them through the Gemma memory adapter before returning OpenViking-compatible memory operations.
 
 Internal RC verification:
-
-```sh
-bash scripts/rc_verify.sh
-```
 
 ## 👉👈
 
